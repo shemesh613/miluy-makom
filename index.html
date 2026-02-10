@@ -1,0 +1,3483 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת מילוי מקום - ת"ת (v2.9)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        /* Day selector */
+        .day-selector {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .day-btn {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .day-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .day-btn.active {
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            border-color: white;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h3 {
+            color: #555;
+            margin: 20px 0 15px 0;
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-box .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-box .label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group select,
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .hours-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .hour-btn, .class-btn {
+            min-width: 50px;
+            height: 50px;
+            padding: 0 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .hour-btn:hover, .class-btn:hover {
+            border-color: #667eea;
+        }
+
+        .hour-btn.selected, .class-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .class-btn.selected {
+            background: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-weight: bold;
+            color: #856404;
+        }
+
+        .absence-list {
+            margin-top: 20px;
+        }
+
+        .absence-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-right: 4px solid #667eea;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .absence-item.reported {
+            border-right-color: #28a745;
+        }
+
+        .absence-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .absence-info .name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .absence-info .details {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .absence-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .status-badge.reported {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connection-status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .connection-status .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .connection-status.online .dot {
+            background: #28a745;
+        }
+
+        .connection-status.offline .dot {
+            background: #dc3545;
+        }
+
+        /* Teacher cards */
+        .teacher-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-right: 4px solid #28a745;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .teacher-card.required {
+            border-right-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .teacher-card.not-working {
+            border-right-color: #6c757d;
+            background: #f0f0f0;
+            opacity: 0.7;
+        }
+
+        .teacher-card .teacher-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .teacher-card .teacher-hours {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .teacher-card .badge {
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .badge-required {
+            background: #dc3545;
+        }
+
+        .badge-optional {
+            background: #28a745;
+        }
+
+        .badge-not-working {
+            background: #6c757d;
+        }
+
+        .substitute-select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            min-width: 150px;
+        }
+
+        .warning-text {
+            color: #dc3545;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .trip-notice {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .trip-notice .icon {
+            font-size: 1.5rem;
+        }
+
+        .add-teacher-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .honor-board {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .honor-board h3 {
+            color: #495057;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .honor-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .honor-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .honor-item .rank {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .honor-item.gold .rank { background: linear-gradient(135deg, #ffd700, #ffb347); }
+        .honor-item.silver .rank { background: linear-gradient(135deg, #c0c0c0, #a8a8a8); }
+        .honor-item.bronze .rank { background: linear-gradient(135deg, #cd7f32, #b87333); }
+        .honor-item .name { font-weight: 500; color: #333; }
+        .honor-item .points { color: #667eea; font-size: 0.85rem; font-weight: bold; }
+
+        .add-teacher-form select,
+        .add-teacher-form input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .nav-tab {
+                padding: 10px 18px;
+                font-size: 0.9rem;
+            }
+
+            .day-btn {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Locked state */
+        .locked-notice {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .locked-notice .lock-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .locked-notice h3 {
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        /* Honor board - subtle design for adults */
+
+        /* Password modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-box {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 350px;
+            width: 90%;
+        }
+
+        .modal-box h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-box .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-box .btn-row button {
+            flex: 1;
+        }
+
+        /* Merge suggestion */
+        .merge-suggestion {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #2196f3;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .merge-suggestion .merge-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .merge-suggestion .merge-icon {
+            font-size: 1.3rem;
+        }
+
+        .merge-suggestion .merge-text {
+            color: #1565c0;
+            font-size: 0.95rem;
+        }
+
+        .merge-suggestion .merge-text strong {
+            color: #0d47a1;
+        }
+
+        .btn-merge {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .btn-merge:hover {
+            background: #1976d2;
+        }
+
+        .contact-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            text-decoration: none;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 0 2px;
+        }
+
+        .contact-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .contact-whatsapp { background: #25D366; }
+        .contact-sms { background: #2196f3; }
+        .contact-call { background: #ff9800; }
+
+        .contact-buttons {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 מערכת מילוי מקום</h1>
+            <p>ניהול היעדרויות ומילויי מקום - ת"ת</p>
+        </header>
+
+        <!-- Trip indicator -->
+        <div id="trip-indicator" style="display: none; background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 10px 15px; margin-bottom: 15px; text-align: center;">
+            <span style="font-size: 1.2rem;">🚌</span>
+            <span id="trip-indicator-text" style="font-weight: bold; color: #856404;"></span>
+        </div>
+
+        <!-- Day selector -->
+        <div class="day-selector">
+            <button class="day-btn" data-day="6">שבת</button>
+            <button class="day-btn" data-day="0">ראשון</button>
+            <button class="day-btn" data-day="1">שני</button>
+            <button class="day-btn" data-day="2">שלישי</button>
+            <button class="day-btn" data-day="3">רביעי</button>
+            <button class="day-btn" data-day="4">חמישי</button>
+            <button class="day-btn" data-day="5">שישי</button>
+        </div>
+
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-page="home">🏠 דף הבית</button>
+            <button class="nav-tab" data-page="report">📝 דיווח היעדרות</button>
+            <button class="nav-tab" data-page="trip">🚌 טיולים</button>
+            <button class="nav-tab" data-page="substitute">🔄 מילוי מקום</button>
+            <button class="nav-tab" data-page="suggestions">📖 הנחיות</button>
+            <button class="nav-tab" data-page="settings">⚙️ הגדרות</button>
+        </nav>
+
+        <!-- דף הבית -->
+        <div id="page-home" class="page active">
+            <div id="honor-board-container"></div>
+            <div class="card">
+                <h2><span class="icon">📊</span> סטטיסטיקות - <span id="current-day-name">היום</span></h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="number" id="stat-absent">0</div>
+                        <div class="label">חסרים</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" id="stat-assigned">0</div>
+                        <div class="label">שובצו</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="number" id="stat-available">0</div>
+                        <div class="label">פנויים</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="trip-notice-container"></div>
+
+            <div class="card">
+                <h2><span class="icon">📋</span> היעדרויות היום</h2>
+                <div id="today-list" class="absence-list">
+                    <div class="empty-state">
+                        <div class="icon">🎉</div>
+                        <p>אין היעדרויות מדווחות!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- דיווח היעדרות -->
+        <div id="page-report" class="page">
+            <div id="locked-notice-container"></div>
+            <div class="card" id="report-form-card">
+                <h2><span class="icon">📝</span> דיווח היעדרות חדשה</h2>
+
+                <div class="form-group">
+                    <label>שם המורה</label>
+                    <select id="teacher-select">
+                        <option value="">-- בחר מורה --</option>
+                    </select>
+                    <input type="text" id="teacher-manual" placeholder="הזן שם מורה" style="display: none; margin-top: 10px;">
+                </div>
+
+                <div class="form-group">
+                    <label>שעות היעדרות</label>
+                    <div class="hours-selector" id="hours-selector">
+                        <button type="button" class="hour-btn" data-hour="בוקר">בוקר</button>
+                        <button type="button" class="hour-btn" data-hour="4">4</button>
+                        <button type="button" class="hour-btn" data-hour="5">5</button>
+                        <button type="button" class="hour-btn" data-hour="6">6</button>
+                        <button type="button" class="hour-btn" data-hour="7">7</button>
+                        <button type="button" class="hour-btn" data-hour="8">8</button>
+                        <button type="button" class="hour-btn" data-hour="9">9</button>
+                        <button type="button" class="hour-btn" data-hour="10">10</button>
+                        <button type="button" class="hour-btn" data-hour="סדר ערב">סדר ערב</button>
+                        <button type="button" class="hour-btn" id="all-day-btn" style="background: #ffc107; border-color: #ffc107; color: #333; font-weight: bold;">📅 כל היום</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>סיבת ההיעדרות</label>
+                    <textarea id="absence-reason" rows="2" placeholder="סיבת ההיעדרות (אופציונלי)"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>📖 הנחיות למחליף (מה ללמד בכל שעה)</label>
+                    <div id="suggestion-fields-container"></div>
+                    <textarea id="absence-suggestion-general" rows="3" placeholder="לדוגמה: שעה 4 - תורה עמוד כג, שעה 5 - נביא פרק ד..." style="display:none;"></textarea>
+                    <p style="color: #999; font-size: 0.8rem; margin-top: 4px;">✍️ כתוב מה המחליף צריך ללמד - זה יופיע למשבץ</p>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="reported-to-moshe">
+                    <label for="reported-to-moshe">⚠️ דיווחתי לרב משה (חובה!)</label>
+                </div>
+                <p class="warning-text" id="report-warning">* חובה לדווח לרב משה לפני שמירת ההיעדרות</p>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" id="save-btn" disabled>💾 שמור היעדרות</button>
+                    <button class="btn btn-secondary" id="clear-btn">🗑️ נקה טופס</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- טיולים -->
+        <div id="page-trip" class="page">
+            <div class="card">
+                <h2><span class="icon">🚌</span> דיווח כיתה בטיול</h2>
+                <p style="color: #666; margin-bottom: 15px;">בחר כיתה שיוצאת לטיול ומי המלווה</p>
+
+                <div class="form-group">
+                    <label>כיתה בטיול</label>
+                    <div class="hours-selector">
+                        <button type="button" class="class-btn trip-class-btn" data-class="א">א</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ב">ב</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ג">ג</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ד">ד</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ה">ה</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ו">ו</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ז">ז</button>
+                        <button type="button" class="class-btn trip-class-btn" data-class="ח">ח</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>מורים מלווים (יוצאים עם הכיתה)</label>
+                    <div id="trip-teachers-container">
+                        <div class="trip-teacher-row" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+                            <select class="trip-teacher-select" style="flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px;">
+                                <option value="">-- בחר מורה מלווה --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addTripTeacherRow()" style="margin-top: 5px;">➕ הוסף מורה מלווה נוסף</button>
+                </div>
+
+                <button class="btn btn-primary" onclick="saveTrip()">🚌 שמור טיול</button>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">📋</span> טיולים היום</h2>
+                <div id="trips-today-list">
+                    <div class="empty-state">
+                        <div class="icon">🚌</div>
+                        <p>אין טיולים היום</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- מילוי מקום -->
+        <div id="page-substitute" class="page">
+            <!-- Merge suggestions - scrollable -->
+            <div id="merge-section" class="card" style="display: none; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 2px solid #2196f3;">
+                <h2 style="color: #1565c0;"><span class="icon">🔗</span> הצעות לאיחוד כיתות</h2>
+                <div id="merge-suggestions-scroll" style="max-height: 200px; overflow-y: auto;">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🔴</span> חייבים למלא מקום</h2>
+                <p style="color: #666; margin-bottom: 15px;">מורים שהכיתה שלהם בטיול - חייבים למלא מקום</p>
+                <div id="required-teachers-list">
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <p>אין כיתות בטיול היום</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🟢</span> פנויים למילוי מקום</h2>
+                <p style="color: #666; margin-bottom: 15px;">מורים שעובדים היום ופנויים בשעות מסוימות</p>
+                <div id="available-teachers-list">
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <p>אין מורים פנויים</p>
+                    </div>
+                </div>
+
+                <h3>➕ הוסף מורה פנוי</h3>
+                <div class="add-teacher-form">
+                    <select id="add-available-teacher">
+                        <option value="">-- בחר מורה --</option>
+                    </select>
+                    <input type="text" id="add-available-hours" placeholder="שעות (לדוגמה: 4,5,6)">
+                    <button class="btn btn-primary btn-sm" onclick="addAvailableTeacher()">הוסף</button>
+                </div>
+            </div>
+
+            <div class="card" style="text-align: center; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
+                <button class="btn btn-primary" onclick="openMassSend()" style="font-size: 1.1rem; padding: 14px 28px; background: #4caf50;">
+                    📨 שלח הודעה לכל הפנויים (שעובדים היום)
+                </button>
+                <p style="color: #666; margin-top: 8px; font-size: 0.85rem;">ווטסאפ / הודעה / שיחה - לפי העדפת כל מורה</p>
+            </div>
+
+            <!-- Mass send modal -->
+            <div id="mass-send-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; overflow-y:auto;">
+                <div style="max-width:500px; margin:30px auto; background:white; border-radius:16px; padding:24px; direction:rtl;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h2 style="margin:0;">📨 שליחה לכל הפנויים</h2>
+                        <button onclick="closeMassSend()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+                    </div>
+                    <div class="form-group">
+                        <label>ההודעה שתישלח:</label>
+                        <textarea id="mass-send-message" rows="3" style="width:100%; padding:10px; border:2px solid #e0e0e0; border-radius:10px; font-size:1rem;"></textarea>
+                    </div>
+                    <div id="mass-send-groups" style="margin-top:16px;"></div>
+                    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="sendAllWhatsApp()" style="background:#25D366; flex:1;">💬 ווטסאפ לכולם</button>
+                        <button class="btn btn-primary" onclick="sendAllSMS()" style="background:#2196f3; flex:1;">✉️ SMS לכולם</button>
+                        <button class="btn btn-primary" onclick="sendAllCalls()" style="background:#ff9800; flex:1;">📞 התקשר לכולם</button>
+                    </div>
+                    <div id="mass-send-calls" style="margin-top:16px;"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">⚫</span> לא עובדים היום</h2>
+                <p style="color: #666; margin-bottom: 15px;">מורים שלא עובדים היום - פחות סיכוי שיעזרו</p>
+                <div id="not-working-teachers-list">
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <p>כולם עובדים היום</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">📋</span> שיבוץ ממלאי מקום</h2>
+                <div id="assignments-list">
+                    <div class="empty-state">
+                        <div class="icon">📝</div>
+                        <p>אין היעדרויות לשיבוץ</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="text-align: center; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
+                <h2 style="color: #2e7d32; justify-content: center;"><span class="icon">✅</span> סיימתי שיבוץ להיום</h2>
+                <p style="color: #666; margin-bottom: 15px;">לחץ כאן כדי להפסיק את התזכורות בווטסאפ להיום</p>
+                <div id="dismiss-status" style="margin-bottom: 15px;"></div>
+                <button id="dismiss-btn" class="btn btn-primary" onclick="dismissReminders()" style="background: #4caf50; font-size: 1.1rem; padding: 14px 28px;">
+                    ✅ סיימתי שיבוץ - אל תזכיר לי יותר היום
+                </button>
+                <button id="undismiss-btn" class="btn btn-secondary" onclick="undismissReminders()" style="display: none; font-size: 1rem; padding: 12px 24px;">
+                    🔄 בטל - תמשיך לשלוח תזכורות
+                </button>
+            </div>
+        </div>
+
+        <!-- הנחיות למחליף -->
+        <div id="page-suggestions" class="page">
+            <div class="card" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800;">
+                <h2 style="color: #e65100;"><span class="icon">📖</span> הנחיות למחליפים - יום <span id="suggestions-day-name"></span></h2>
+                <p style="color: #666; margin-bottom: 15px;">מה המורה ביקש שילמדו בשעות שהוא נעדר</p>
+                <div id="suggestions-list">
+                    <div class="empty-state">
+                        <div class="icon">📝</div>
+                        <p>אין הנחיות להיום</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- הגדרות -->
+        <div id="page-settings" class="page">
+            <div class="card">
+                <h2><span class="icon">🚌</span> כיתות בטיול היום</h2>
+                <p style="color: #666; margin-bottom: 15px;">סמן אילו כיתות בטיול - המורים שלהם יסומנו כ"חייבים למלא מקום"</p>
+                <div class="hours-selector" id="trip-classes-selector">
+                    <button type="button" class="class-btn" data-class="א">א</button>
+                    <button type="button" class="class-btn" data-class="ב">ב</button>
+                    <button type="button" class="class-btn" data-class="ג">ג</button>
+                    <button type="button" class="class-btn" data-class="ד">ד</button>
+                    <button type="button" class="class-btn" data-class="ה">ה</button>
+                    <button type="button" class="class-btn" data-class="ו">ו</button>
+                    <button type="button" class="class-btn" data-class="ז">ז</button>
+                    <button type="button" class="class-btn" data-class="ח">ח</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-primary" onclick="saveTripClasses()">💾 שמור</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🔓</span> פתיחת יום לדיווח</h2>
+                <p style="color: #666; margin-bottom: 15px;">פתיחת יום ספציפי לדיווחים גם אחרי שננעל</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <select id="unlock-day-select" style="padding: 10px; border-radius: 8px; border: 2px solid #e0e0e0;">
+                        <option value="">-- בחר יום --</option>
+                        <option value="0">ראשון</option>
+                        <option value="1">שני</option>
+                        <option value="2">שלישי</option>
+                        <option value="3">רביעי</option>
+                        <option value="4">חמישי</option>
+                        <option value="5">שישי</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" onclick="unlockDay()">🔓 פתח לדיווח</button>
+                    <button class="btn btn-secondary btn-sm" onclick="lockDay()">🔒 נעל</button>
+                </div>
+                <div id="unlocked-days-list" style="color: #28a745;"></div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🗑️</span> איפוס שבועי</h2>
+                <p style="color: #666; margin-bottom: 15px;">מחיקת כל הנתונים והתחלה מחדש לשבוע הבא</p>
+                <button class="btn btn-danger" onclick="resetWeek()">🔄 אפס את כל הנתונים</button>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">👨‍🏫</span> מורה קבוע לממילוי מקום</h2>
+                <p style="color: #666; margin-bottom: 15px;">הרב צביקה - תמיד פנוי לעזור</p>
+                <div class="teacher-card">
+                    <div>
+                        <div class="teacher-name">הרב צביקה</div>
+                        <div class="teacher-hours">ממלא מקום קבוע - תמיד זמין</div>
+                    </div>
+                    <span class="badge badge-optional">מתנדב קבוע</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="connection-status" class="connection-status offline">
+        <span class="dot"></span>
+        <span id="connection-text">טוען...</span>
+        <span style="margin-right: 10px; opacity: 0.7; font-size: 0.8rem;">v2.7</span>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="password-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>🔐 הזן קוד גישה</h3>
+            <input type="password" id="settings-password" placeholder="קוד" maxlength="6">
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="checkSettingsPassword()">אישור</button>
+                <button class="btn btn-secondary" onclick="closePasswordModal()">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtVm-0yjDwXGMlQcjDR0i-7HqdilWf4Rg",
+            authDomain: "moria-1d5c0.firebaseapp.com",
+            databaseURL: "https://moria-1d5c0-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "moria-1d5c0",
+            storageBucket: "moria-1d5c0.firebasestorage.app",
+            messagingSenderId: "274739088071",
+            appId: "1:274739088071:web:382ac3ee13c19655878ce2"
+        };
+
+        // Day names
+        const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+        // Parallel classes structure - which classes can be merged
+        const parallelClasses = {
+            'א': ['א1', 'א2'],  // כיתה א יש לה שתי קבוצות
+            'ב': ['ב1', 'ב2'],
+            'ד': ['ד1', 'ד2'],
+            'ה': ['ה1', 'ה2'],
+            // כיתות ללא מקבילות:
+            'ג': null,
+            'ו': null,
+            'ז': null,
+            'ח': null
+        };
+
+        // Class names for display
+        const classNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'];
+
+        // Classes that have parallel groups and can be merged
+        const classesWithParallel = ['א', 'ב', 'ד', 'ה'];
+
+        // Main class teachers (מחנכים) - for merge suggestions
+        const classMechanech = {
+            'א1': 'הרב שלומי',
+            'א2': 'הרב אלי',
+            'ב1': 'הרב בישמוט',
+            'ב2': 'הרב שמשון',
+            'ג': 'הרב יובל',
+            'ד1': 'הרב נריה',
+            'ד2': 'הרב נועם',
+            'ה1': 'הרב ליאור',
+            'ה2': 'הרב צבי',
+            'ו': 'הרב משה',
+            'ז': 'הרב אבי',
+            'ח': 'הרב יעקב חדד'
+        };
+
+        // All teachers list
+        const allTeachers = [
+            'הרב אבי', 'הרב אורי', 'הרב אלי', 'הרב אליהו שמשון', 'הרב בישמוט',
+            'הרב בני', 'הרב דוד', 'הרב יובל', 'הרב יעקב חדד', 'הרב ינון',
+            'הרב ליאור', 'הרב מור', 'הרב משה', 'הרב נהוראי', 'הרב נועם',
+            'הרב נריה', 'הרב סימון', 'הרב פורת', 'הרב צבי', 'הרב צביקה',
+            'הרב שלומי', 'הרב שמואל', 'הרב שמשון',
+            'המורה זוהרה', 'המורה חגית', 'המורה לאה', 'המורה שרה אליה', 'המורה שרה תורג\'מן'
+        ];
+
+        // Teacher schedule - AUTO-GENERATED from schedule_0_0.csv
+        // Day: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday
+        const teacherSchedule = {
+            'הרב שלומי': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','4','5'],
+                    1: ['בוקר','4','5'],
+                    2: ['בוקר','4','5','7'],
+                    3: ['בוקר','4','5'],
+                    4: ['בוקר','7','8'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['א'], 1: ['א'], 2: ['א'], 3: ['א'], 4: ['א'], 5: ['א'] }
+            },
+            'הרב אלי': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','7','8','9'],
+                    1: ['בוקר','7','8','9'],
+                    2: ['בוקר','4','5','7','8'],
+                    3: ['בוקר','4','5','6','7','8','9'],
+                    4: ['בוקר','4','5','7','8'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['א','ז','ו'], 1: ['א','ד','ו'], 2: ['א'], 3: ['א','ה','ד'], 4: ['א','ד','ז','ה'], 5: ['א'] }
+            },
+            'הרב בישמוט': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','5','7','8'],
+                    1: ['בוקר','4','6','7','8'],
+                    2: ['בוקר','7','8'],
+                    3: ['בוקר','6','7','8'],
+                    4: ['בוקר','4','5','6','7'],
+                    5: ['בוקר','4']
+                },
+                dayClasses: { 0: ['ב','ה'], 1: ['ב','ה'], 2: ['ב'], 3: ['ב','ה'], 4: ['ב','ד','ה'], 5: ['ב'] }
+            },
+            'הרב שמשון': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','4','5','7'],
+                    1: ['בוקר'],
+                    2: ['בוקר','7'],
+                    3: ['בוקר','4','7','8'],
+                    4: ['בוקר'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ב'], 1: ['ב'], 2: ['ב'], 3: ['ב'], 4: ['ב'], 5: ['ב'] }
+            },
+            'הרב יובל': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','4','5','7','8'],
+                    1: ['בוקר','4','5','7','8'],
+                    2: ['בוקר','5','7','8'],
+                    3: ['בוקר'],
+                    4: ['בוקר','5','7','8','9'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ג'], 1: ['ג','ו'], 2: ['ג','ו'], 3: ['ג'], 4: ['ג','ה','ו'], 5: ['ג'] }
+            },
+            'הרב נריה': {
+                days: [0,1,2,3,5],
+                dayHours: {
+                    0: ['בוקר','4','5','6'],
+                    1: ['בוקר'],
+                    2: ['בוקר','4','6','7','8'],
+                    3: ['בוקר','4','6'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ד'], 1: ['ד'], 2: ['ד'], 3: ['ד'], 5: ['ד'] }
+            },
+            'הרב נועם': {
+                days: [0,1,2,3,5],
+                dayHours: {
+                    0: ['בוקר','4','5','7','8'],
+                    1: ['בוקר','4','5','6','7','8','9'],
+                    2: ['בוקר','4','5','6','7'],
+                    3: ['בוקר','4','6','7','8','9'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ד','א'], 1: ['ד','א'], 2: ['ד','א'], 3: ['ד','א'], 5: ['ד'] }
+            },
+            'הרב ליאור': {
+                days: [0,1,2,4,5],
+                dayHours: {
+                    0: ['בוקר','4','5','6'],
+                    1: ['בוקר','4'],
+                    2: ['בוקר','5','6','7'],
+                    4: ['בוקר','4','5','6'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ה'], 1: ['ה'], 2: ['ה'], 4: ['ה'], 5: ['ה'] }
+            },
+            'הרב צבי': {
+                days: [0,1,2,3,5],
+                dayHours: {
+                    0: ['בוקר','4','5','7','8','9','10'],
+                    1: ['בוקר','4','5','6'],
+                    2: ['בוקר','6','7','8'],
+                    3: ['בוקר','4','5','6','7','8'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ה'], 1: ['ה'], 2: ['ה'], 3: ['ה'], 5: ['ה'] }
+            },
+            'הרב משה': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','4','9','סדר ערב'],
+                    1: ['בוקר','7','8','9'],
+                    2: ['בוקר','4','7'],
+                    3: ['בוקר','7','8','9','סדר ערב'],
+                    4: ['בוקר','8','9'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ו'], 1: ['ו'], 2: ['ו'], 3: ['ו'], 4: ['ו'], 5: ['ו'] }
+            },
+            'הרב יעקב חדד': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['בוקר','4','5','6'],
+                    1: ['בוקר','4','5','6'],
+                    2: ['בוקר','4','5','6','7'],
+                    3: ['בוקר','4','5','6'],
+                    4: ['בוקר','4','5','6'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ח'], 1: ['ח'], 2: ['ח'], 3: ['ח'], 4: ['ח'], 5: ['ח'] }
+            },
+            'הרב אבי': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['בוקר','4','5','6'],
+                    1: ['בוקר','4','5','6'],
+                    2: ['בוקר','4','5','6','7','8'],
+                    3: ['בוקר','4','5','6'],
+                    4: ['בוקר','4','5','6']
+                },
+                dayClasses: { 0: ['ז'], 1: ['ז'], 2: ['ז'], 3: ['ז'], 4: ['ז'] }
+            },
+            'הרב פורת': {
+                days: [0,4],
+                dayHours: {
+                    0: ['4','5','6','7','8'],
+                    4: ['בוקר','4','5','6','7','8']
+                },
+                dayClasses: { 0: ['ג','ד','א'], 4: ['ד','א','ג'] }
+            },
+            'הרב נהוראי': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['4','5','6'],
+                    1: ['4','5','6','7'],
+                    2: ['4','5','6','7'],
+                    3: ['4','5','7'],
+                    4: ['4','5','6','7']
+                },
+                dayClasses: { 0: ['ב'], 1: ['ב','ה'], 2: ['ב','ה'], 3: ['ב','ה'], 4: ['ב','ה'] }
+            },
+            'הרב בני': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: ['4','5','6','7','8'],
+                    1: ['4','6','7','8','9'],
+                    2: ['4','5','6','7','8'],
+                    3: ['בוקר','4','5','6','7','8','9'],
+                    4: ['בוקר','4','5','6','7','8','9'],
+                    5: ['בוקר','4','5']
+                },
+                dayClasses: { 0: ['ד','ב','ה'], 1: ['ג','ד','ב','ה'], 2: ['ג','ב','ד','ה'], 3: ['ה','ג'], 4: ['ד','ב'], 5: ['ז'] }
+            },
+            'הרב אליהו שמשון': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['5','6','7'],
+                    1: ['6','7','8','9','10'],
+                    2: ['5','6','7','8','9'],
+                    3: ['5','6','7','8','9','10'],
+                    4: ['6','7','8','9']
+                },
+                dayClasses: { 0: ['ג','ז'], 1: ['ג','ב','ד','ח'], 2: ['ג','ב','ד','ז','ח'], 3: ['ב','ג','ז','ח','ד'], 4: ['ג','ז','ח','ד'] }
+            },
+            'הרב שמואל': {
+                days: [0,2,4],
+                dayHours: {
+                    0: ['5','6','7','8','9'],
+                    2: ['4','5','6','7','8','9'],
+                    4: ['בוקר','4','5','6','7','8','9']
+                },
+                dayClasses: { 0: ['ה','ו','ח'], 2: ['ה','ו','ז'], 4: ['ה','ו','ז','ח'] }
+            },
+            'הרב סימון': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['9'],
+                    1: ['9','10','סדר ערב'],
+                    2: ['9','10'],
+                    3: ['9','10'],
+                    4: ['8','9','10','סדר ערב']
+                },
+                hakbatza: 'חשבון',
+                dayClasses: { 0: ['ה'], 1: ['ה','ח'], 2: ['ח','ז'], 3: ['ה','ח'], 4: ['ח','ה'] }
+            },
+            'הרב צביקה': {
+                days: [1,2,3,4],
+                dayHours: {
+                    1: ['8','10'],
+                    2: ['7'],
+                    3: ['7','8'],
+                    4: ['7','8']
+                },
+                permanent: true,
+                dayClasses: { 1: ['ה','ז'], 2: ['ו'], 3: ['ח','ה'], 4: ['ו','ה'] }
+            },
+            'הרב מור': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['10'],
+                    1: ['7','8'],
+                    2: ['10'],
+                    3: ['10'],
+                    4: ['10']
+                },
+                dayClasses: { 0: ['ח'], 1: ['ח'], 2: ['ח'], 3: ['ז'], 4: ['ז'] }
+            },
+            'הרב ינון': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['7','8'],
+                    1: ['7','8'],
+                    2: ['6'],
+                    3: ['6','7','8'],
+                    4: ['7','8']
+                },
+                dayClasses: { 0: ['ד'], 1: ['ד'], 2: ['ד'], 3: ['ד','א'], 4: ['ד'] }
+            },
+            'הרב דוד': {
+                days: [1,3],
+                dayHours: {
+                    1: ['5','6','7','8'],
+                    3: ['5','6','7','8']
+                },
+                dayClasses: { 1: ['ג','ה','ז','ח'], 3: ['ו','ב','א','ד'] }
+            },
+            'הרב אורי': {
+                days: [0,1,2,3,5],
+                dayHours: {
+                    0: ['4','5','7','8','9','10'],
+                    1: ['5','6'],
+                    2: ['8'],
+                    3: ['4','5','6','7','8'],
+                    5: ['5']
+                },
+                hakbatza: 'אנגלית',
+                dayClasses: { 0: ['ה','ו','ח','ז','ד'], 1: ['ה','ו'], 2: ['ח'], 3: ['ה','ד','ו','ז','ח'], 5: [] }
+            },
+            'המורה לאה': {
+                days: [0,1,2,4],
+                dayHours: {
+                    0: ['4','5','6'],
+                    1: ['4','5','6'],
+                    2: ['4','5','6'],
+                    4: ['4','5','6','7','8']
+                },
+                dayClasses: { 0: ['א'], 1: ['א'], 2: ['א'], 4: ['א'] }
+            },
+            'המורה שרה תורג\'מן': {
+                days: [0,3,4],
+                dayHours: {
+                    0: ['6'],
+                    3: ['5'],
+                    4: ['5','6']
+                },
+                dayClasses: { 0: ['ב'], 3: ['ב'], 4: ['ב'] }
+            },
+            'המורה שרה אליה': {
+                days: [0,3],
+                dayHours: {
+                    0: ['8'],
+                    3: ['8']
+                },
+                dayClasses: { 0: ['ב'], 3: ['א'] }
+            },
+            'המורה חגית': {
+                days: [0,1,3,4],
+                dayHours: {
+                    0: ['6','7','8'],
+                    1: ['4','5','6','7','8'],
+                    3: ['4','5','6'],
+                    4: ['4','6']
+                },
+                dayClasses: { 0: ['א'], 1: ['ב','א'], 3: ['א'], 4: ['א','ב'] }
+            },
+            'המורה זוהרה': {
+                days: [0,1,2,3,4],
+                dayHours: {
+                    0: ['7','8'],
+                    1: ['5','6'],
+                    2: ['4'],
+                    3: ['8'],
+                    4: ['4','7','8']
+                },
+                dayClasses: { 0: ['ב'], 1: ['ב'], 2: ['ב'], 3: ['ב'], 4: ['ב'] }
+            }
+        };
+
+        // Per-hour class mapping: teacher -> day -> hour -> class letter
+        // AUTO-GENERATED from schedule_0_0.csv
+        const dayHourClassesData = {
+            'הרב שלומי': {0: {'4':'א1', '5':'ד1', 'בוקר':'א1'}, 1: {'4':'א1', '5':'ד1', 'בוקר':'א1'}, 2: {'4':'א1', '5':'ד1', 'בוקר':'א1'}, 3: {'4':'א1', '5':'א1', 'בוקר':'א1'}, 4: {'7':'א1', '8':'א1', 'בוקר':'א1'}, 5: {'4':'א1', '5':'א1', 'בוקר':'א1'}},
+            'הרב אלי': {0: {'7':'ז', '8':'ו', '9':'ו', 'בוקר':'א2'}, 1: {'7':'ד1', '8':'ד1', '9':'ו', 'בוקר':'א2'}, 2: {'4':'ה1', '5':'א2', '8':'ז', 'בוקר':'א2'}, 3: {'4':'ו', '5':'ה1', '6':'ה1', '7':'ד1', '8':'ז', '9':'ו', 'בוקר':'א2'}, 4: {'4':'ו', '5':'ד1', '7':'ז', '8':'ה1', 'בוקר':'א2'}, 5: {'4':'א2', '5':'א2', 'בוקר':'א2'}},
+            'הרב בישמוט': {0: {'7':'ה1', '8':'ה2', 'בוקר':'ב1'}, 1: {'4':'ד2', '6':'ה2', '7':'ה1', '8':'ה2', 'בוקר':'ב1'}, 2: {'8':'ד2', 'בוקר':'ב1'}, 3: {'6':'ב2', '7':'ה1', '8':'ה2', 'בוקר':'ב1'}, 4: {'4':'ג', '5':'ה2', '6':'ד2', '7':'ד2', 'בוקר':'ב1'}, 5: {'4':'ב1', 'בוקר':'ב1'}},
+            'הרב שמשון': {0: {'4':'ב2', '5':'ב2', '7':'ב2', 'בוקר':'ב2'}, 1: {'בוקר':'ב2'}, 2: {'בוקר':'ב2'}, 3: {'4':'ב2', '7':'ב2', '8':'ב2', 'בוקר':'ב2'}, 4: {'בוקר':'ב2'}, 5: {'4':'ב2', '5':'ב2', 'בוקר':'ב2'}},
+            'הרב יובל': {0: {'7':'ג', '8':'ג', 'בוקר':'ג'}, 1: {'4':'ו', '5':'ו', '7':'ג', '8':'ג', 'בוקר':'ג'}, 2: {'5':'ו', '8':'ו', 'בוקר':'ג'}, 3: {'בוקר':'ג'}, 4: {'5':'ג', '7':'ה1', '8':'ג', '9':'ו', 'בוקר':'ג'}, 5: {'4':'ג', '5':'ג', 'בוקר':'ג'}},
+            'הרב נריה': {0: {'4':'ד1', '6':'ד1', 'בוקר':'ד1'}, 1: {'בוקר':'ד1'}, 2: {'4':'ד1', '6':'ד1', '8':'ד1', 'בוקר':'ד1'}, 3: {'4':'ד1', '6':'ד1', 'בוקר':'ד1'}, 5: {'4':'ד1', '5':'ד1', 'בוקר':'ד1'}},
+            'הרב נועם': {0: {'4':'ד2', '5':'א2', '7':'ד1', '8':'ד1', 'בוקר':'ד2'}, 1: {'4':'ד1', '5':'ד2', '6':'ד2', '7':'א2', '8':'א2', '9':'ד1', 'בוקר':'ד2'}, 2: {'4':'ד2', '5':'ד2', '6':'א2', 'בוקר':'ד2'}, 3: {'4':'ד2', '6':'א2', '7':'ד2', '8':'א2', '9':'ד1', 'בוקר':'ד2'}, 5: {'4':'ד2', '5':'ד2', 'בוקר':'ד2'}},
+            'הרב ליאור': {0: {'5':'ה1', '6':'ה1', 'בוקר':'ה1'}, 1: {'4':'ה1', 'בוקר':'ה1'}, 2: {'5':'ה1', '6':'ה1', 'בוקר':'ה1'}, 4: {'4':'ה2', '5':'ה1', '6':'ה1', 'בוקר':'ה1'}, 5: {'4':'ה1', '5':'ה1', 'בוקר':'ה1'}},
+            'הרב צבי': {0: {'4':'ה', '5':'ו', '7':'ח', '8':'ז', '9':'ד', '10':'ז', 'בוקר':'ה2'}, 1: {'4':'ה2', '5':'ה', '6':'ו', 'בוקר':'ה2'}, 2: {'6':'ה2', '8':'ח', 'בוקר':'ה2'}, 3: {'4':'ה', '5':'ד', '6':'ו', '7':'ז', '8':'ח', 'בוקר':'ה2'}, 5: {'4':'ה2', '5':'ה2', 'בוקר':'ה2'}},
+            'הרב משה': {0: {'4':'ו', 'בוקר':'ו'}, 1: {'7':'ו', '8':'ו', 'בוקר':'ו'}, 2: {'4':'ו', 'בוקר':'ו'}, 3: {'7':'ו', '8':'ו', 'בוקר':'ו'}, 4: {'8':'ו', 'בוקר':'ו'}, 5: {'4':'ו', '5':'ו', 'בוקר':'ו'}},
+            'הרב יעקב חדד': {0: {'4':'ח', '5':'ז', '6':'ז', 'בוקר':'ח'}, 1: {'4':'ח', '5':'ז', '6':'ז', 'בוקר':'ח'}, 2: {'4':'ח', '5':'ז', '6':'ז', 'בוקר':'ח'}, 3: {'4':'ח', '5':'ז', '6':'ז', 'בוקר':'ח'}, 4: {'4':'ח', '5':'ז', '6':'ז', 'בוקר':'ח'}, 5: {'4':'ח', '5':'ח', 'בוקר':'ח'}},
+            'הרב אבי': {0: {'4':'ז', '5':'ח', '6':'ח', 'בוקר':'ז'}, 1: {'4':'ז', '5':'ח', '6':'ח', 'בוקר':'ז'}, 2: {'4':'ז', '5':'ח', '6':'ח', '7':'ז', 'בוקר':'ז'}, 3: {'4':'ז', '5':'ח', '6':'ח', 'בוקר':'ז'}, 4: {'4':'ז', '5':'ח', '6':'ח', 'בוקר':'ז'}},
+            'הרב פורת': {0: {'4':'ג', '5':'ד2', '6':'ד2', '7':'א1', '8':'א1'}, 4: {'4':'ד1', '5':'א2', '6':'א2', '7':'ג', '8':'ד2', 'בוקר':'ד2'}},
+            'הרב נהוראי': {0: {'4':'ב1', '6':'ב2'}, 1: {'4':'ב2', '5':'ב1', '6':'ב2', '7':'ה2'}, 2: {'4':'ב1', '5':'ב2', '6':'ב1', '7':'ה2'}, 3: {'4':'ב1', '5':'ה2', '7':'ב1'}, 4: {'4':'ב2', '5':'ב2', '6':'ה2', '7':'ה2'}},
+            'הרב בני': {0: {'4':'ד2', '5':'ב1', '6':'ה2', '7':'ה2', '8':'ה1'}, 1: {'4':'ג', '6':'ד1', '7':'ב1', '8':'ב1', '9':'ה1'}, 2: {'4':'ג', '5':'ב1', '6':'ג', '7':'ד1', '8':'ה2'}, 3: {'4':'ג', '5':'ג', '6':'ה2', '7':'ה2', '8':'ג', '9':'ה1', 'בוקר':'ה1'}, 4: {'4':'ד2', '5':'ד2', '6':'ד1', '7':'ב1', '8':'ב1', '9':'ד1', 'בוקר':'ד1'}, 5: {'4':'ז', '5':'ז', 'בוקר':'ז'}},
+            'הרב אליהו שמשון': {0: {'5':'ג', '6':'ג', '7':'ז'}, 1: {'6':'ג', '7':'ב2', '8':'ב2', '9':'ד2', '10':'ח'}, 2: {'5':'ג', '6':'ב2', '7':'ד2', '8':'ז', '9':'ח'}, 3: {'5':'ב2', '6':'ג', '7':'ג', '8':'ז', '9':'ד2', '10':'ח'}, 4: {'6':'ג', '7':'ז', '8':'ח', '9':'ד2'}},
+            'הרב שמואל': {0: {'5':'ה2', '6':'ו', '7':'ו', '8':'ח', '9':'ה1'}, 2: {'4':'ה2', '5':'ה2', '6':'ו', '7':'ה1', '8':'ה1', '9':'ז'}, 4: {'4':'ה1', '5':'ו', '6':'ו', '7':'ח', '8':'ז', '9':'ה1', 'בוקר':'ה2'}},
+            'הרב סימון': {0: {'9':'ה2'}, 1: {'9':'ה2', '10':'ח'}, 2: {'9':'ח', '10':'ז'}, 3: {'9':'ה2', '10':'ח'}, 4: {'8':'ח', '9':'ה2', '10':'ח'}},
+            'הרב צביקה': {1: {'8':'ה1', '10':'ז'}, 2: {'7':'ו'}, 3: {'7':'ח', '8':'ה1'}, 4: {'7':'ו', '8':'ה2'}},
+            'הרב מור': {0: {'10':'ח'}, 1: {'7':'ח', '8':'ז'}, 2: {'10':'ח'}, 3: {'10':'ז'}, 4: {'10':'ז'}},
+            'הרב ינון': {0: {'7':'ד2', '8':'ד2'}, 1: {'7':'ד2', '8':'ד2'}, 2: {'6':'ד2'}, 3: {'6':'ד2', '7':'א', '8':'ד2'}, 4: {'7':'ד1', '8':'ד1'}},
+            'הרב דוד': {1: {'5':'ג', '6':'ה', '7':'ז', '8':'ח'}, 3: {'5':'ו', '6':'ב', '7':'א', '8':'ד'}},
+            'הרב אורי': {0: {'4':'ה', '5':'ו', '7':'ח', '8':'ז', '9':'ד', '10':'ז'}, 1: {'5':'ה', '6':'ו'}, 2: {'8':'ח'}, 3: {'4':'ה', '5':'ד', '6':'ו', '7':'ז', '8':'ח'}},
+            'המורה לאה': {0: {'4':'א2', '5':'א1', '6':'א2'}, 1: {'4':'א2', '5':'א2', '6':'א1'}, 2: {'4':'א2', '5':'א1', '6':'א1'}, 4: {'4':'א1', '5':'א1', '6':'א1', '7':'א2', '8':'א2'}},
+            'המורה שרה תורג\'מן': {0: {'6':'ב1'}, 3: {'5':'ב1'}, 4: {'5':'ב1', '6':'ב1'}},
+            'המורה שרה אליה': {0: {'8':'ב2'}, 3: {'8':'א1'}},
+            'המורה חגית': {0: {'6':'א1', '7':'א2', '8':'א2'}, 1: {'4':'ב1', '5':'א1', '6':'א2', '7':'א1', '8':'א1'}, 3: {'4':'א2', '5':'א2', '6':'א1'}, 4: {'4':'א2', '6':'ב2'}},
+            'המורה זוהרה': {0: {'7':'ב1', '8':'ב1'}, 1: {'5':'ב2', '6':'ב1'}, 2: {'4':'ב2'}, 3: {'8':'ב1'}, 4: {'4':'ב1', '7':'ב2', '8':'ב2'}},
+        };
+
+        // Helper: get class a teacher teaches at specific day+hour
+        function getTeacherClassAtHour(teacher, day, hour) {
+            const data = dayHourClassesData[teacher];
+            if (!data || !data[day]) return null;
+            return data[day][hour] || null;
+        }
+
+        // Teacher contact data: phone, preferred contact method
+        // methods: 'whatsapp', 'sms', 'call'
+        const teacherContacts = {
+            'הרב אבי': { phone: '0546640059', method: 'whatsapp' },
+            'הרב אלי': { phone: '0539614048', method: 'sms' },
+            'הרב אליהו שמשון': { phone: '0504131511', method: 'call' },
+            'הרב אורי': { phone: '0527638269', method: 'call' },
+            'הרב בישמוט': { phone: '0527157890', method: 'call' },
+            'הרב בני': { phone: '0523502280', method: 'whatsapp' },
+            'הרב דוד': { phone: '0525793572', method: 'whatsapp' },
+            'הרב יובל': { phone: '0506731527', method: 'whatsapp' },
+            'הרב ינון': { phone: '0548422021', method: 'call' },
+            'הרב יעקב חדד': { phone: '0532212156', method: 'sms' },
+            'הרב ליאור': { phone: '0543032836', method: 'whatsapp' },
+            'הרב מור': { phone: '0526410794', method: 'whatsapp' },
+            'הרב משה': { phone: '0526476608', method: 'sms' },
+            'הרב נהוראי': { phone: '0526583616', method: 'whatsapp' },
+            'הרב נועם': { phone: '0542461346', method: 'whatsapp' },
+            'הרב נריה': { phone: '0509919012', method: 'whatsapp' },
+            'הרב סימון': { phone: '0584405828', method: 'sms' },
+            'הרב פורת': { phone: '0545965321', method: 'sms' },
+            'הרב צבי': { phone: '0503883660', method: 'whatsapp' },
+            'הרב צביקה': { phone: '0527671159', method: 'call' },
+            'הרב שלומי': { phone: '0543052239', method: 'sms' },
+            'הרב שמואל': { phone: '0546390328', method: 'whatsapp' },
+            'המורה זוהרה': { phone: '0527186621', method: 'call' },
+            'המורה חגית': { phone: '0548415819', method: 'call' },
+            'המורה לאה': { phone: '0538202498', method: 'call' },
+            'המורה שרה אליה': { phone: '0504100954', method: 'call' },
+            'המורה שרה תורג\'מן': { phone: '0548463377', method: 'call' },
+        };
+
+        // Green API config for direct WhatsApp sending
+        const GREEN_API = {
+            url: 'https://7103.api.greenapi.com',
+            instance: '7103493878',
+            token: 'cdbfb539b5e7411481569cd1d0527ffa66edf2d2d9f94ff5bc'
+        };
+
+        // Send WhatsApp message via Green API
+        async function sendWhatsAppDirect(phone, message) {
+            const chatId = phoneToInternational(phone) + '@c.us';
+            const url = `${GREEN_API.url}/waInstance${GREEN_API.instance}/sendMessage/${GREEN_API.token}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, message })
+            });
+            if (!response.ok) throw new Error(`API error: ${response.status}`);
+            return response.json();
+        }
+
+        // Twilio API for SMS and calls
+        const TWILIO = {
+            sid: 'ACa68bfb4ac5c6601800c1b7c63759a3c8',
+            token: 'fa1396aeed633911c9d6f8a9beed93d9',
+            fromNumber: '+13802122388'
+        };
+
+        // Send SMS via Twilio
+        async function sendTwilioSMS(toPhone, message) {
+            const to = '+972' + toPhone.substring(1);
+            const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO.sid}/Messages.json`;
+            const body = new URLSearchParams({
+                To: to,
+                From: TWILIO.fromNumber,
+                Body: message
+            });
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Basic ' + btoa(TWILIO.sid + ':' + TWILIO.token),
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: body.toString()
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || `Twilio SMS error: ${response.status}`);
+            }
+            return response.json();
+        }
+
+        // Make phone call via Twilio with TTS
+        async function sendTwilioCall(toPhone, message) {
+            const to = '+972' + toPhone.substring(1);
+            const twiml = `<Response><Say language="he-IL" voice="Google.he-IL-Standard-A">${message}</Say><Pause length="2"/><Say language="he-IL" voice="Google.he-IL-Standard-A">${message}</Say></Response>`;
+            const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO.sid}/Calls.json`;
+            const body = new URLSearchParams({
+                To: to,
+                From: TWILIO.fromNumber,
+                Twiml: twiml
+            });
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Basic ' + btoa(TWILIO.sid + ':' + TWILIO.token),
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: body.toString()
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || `Twilio Call error: ${response.status}`);
+            }
+            return response.json();
+        }
+
+        // Check Twilio account and get phone number
+        async function checkTwilioSetup() {
+            try {
+                const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO.sid}/IncomingPhoneNumbers.json`;
+                const response = await fetch(url, {
+                    headers: { 'Authorization': 'Basic ' + btoa(TWILIO.sid + ':' + TWILIO.token) }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.incoming_phone_numbers && data.incoming_phone_numbers.length > 0) {
+                        TWILIO.fromNumber = data.incoming_phone_numbers[0].phone_number;
+                        console.log('Twilio ready, number:', TWILIO.fromNumber);
+                    }
+                }
+            } catch(e) { console.log('Twilio not configured yet:', e.message); }
+        }
+        checkTwilioSetup();
+
+        // Format phone for WhatsApp link (0XX -> 972XX)
+        function phoneToInternational(phone) {
+            return '972' + phone.substring(1);
+        }
+
+        // Generate contact link for a teacher with optional message context
+        function getContactLink(teacher, message) {
+            const contact = teacherContacts[teacher];
+            if (!contact) return null;
+            const encoded = encodeURIComponent(message || '');
+            if (contact.method === 'whatsapp') {
+                return `https://wa.me/${phoneToInternational(contact.phone)}?text=${encoded}`;
+            } else if (contact.method === 'sms') {
+                return `sms:${contact.phone}?body=${encoded}`;
+            }
+            return `tel:${contact.phone}`;
+        }
+
+        // Get contact button HTML for a teacher
+        function getContactButtonsHTML(teacher, message) {
+            const contact = teacherContacts[teacher];
+            if (!contact) return '';
+            const msg = message || `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? תודה רבה!`;
+
+            if (contact.method === 'whatsapp') {
+                const link = `https://wa.me/${phoneToInternational(contact.phone)}?text=${encodeURIComponent(msg)}`;
+                return `<a href="${link}" target="_blank" class="contact-btn contact-whatsapp" title="ווטסאפ">💬</a>
+                        <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
+            } else if (contact.method === 'sms') {
+                const link = `sms:${contact.phone}?body=${encodeURIComponent(msg)}`;
+                return `<a href="${link}" class="contact-btn contact-sms" title="הודעה">✉️</a>
+                        <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
+            } else {
+                return `<a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
+            }
+        }
+
+        // Global variables
+        let database = null;
+        let isOnline = false;
+        let currentDay = new Date().getDay(); // 0=Sunday
+        if (currentDay === 6) currentDay = 0; // If Saturday, show Sunday
+        let absencesData = {};
+        let tripClassesData = {};
+        let availableTeachersData = {};
+        let teacherPointsData = {};
+        let unlockedDaysData = {}; // Days manually unlocked by admin
+        let settingsUnlocked = false;
+        const SETTINGS_PASSWORD = '123456';
+        const LOCKOUT_HOUR = 22;
+        const LOCKOUT_MINUTE = 30;
+
+        // Desktop notifications tracking
+        let previousAbsenceKeys = new Set();
+        let isFirstLoad = true;
+
+        // Request notification permission on load
+        if ('Notification' in window) {
+            Notification.requestPermission();
+        }
+
+        // Notification sound - short beep
+        function playNotificationSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                osc.type = 'sine';
+                gain.gain.value = 0.3;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        // Show desktop notification for new absence
+        function showAbsenceNotification(absence) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            const hourText = absence.hour || '';
+            const title = '🔔 היעדרות חדשה!';
+            const body = `${absence.teacher} - שעה ${hourText} (יום ${dayNames[absence.day] || ''})`;
+            const notification = new Notification(title, {
+                body: body,
+                icon: '📋',
+                tag: 'absence-' + Date.now(),
+                requireInteraction: true
+            });
+            notification.onclick = function() {
+                window.focus();
+                navigateToPage('page-substitute');
+                notification.close();
+            };
+            playNotificationSound();
+        }
+
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log("Firebase initialized");
+        } catch (error) {
+            console.error("Firebase init error:", error);
+        }
+
+        // Test connection and load data
+        if (database) {
+            database.ref('connection_test').set({ timestamp: Date.now() })
+                .then(() => {
+                    console.log("Firebase connected!");
+                    isOnline = true;
+                    updateConnectionStatus(true);
+                    loadAllData();
+                })
+                .catch((error) => {
+                    console.error("Firebase error:", error);
+                    isOnline = false;
+                    updateConnectionStatus(false);
+                    loadFromLocalStorage();
+                });
+        } else {
+            updateConnectionStatus(false);
+            loadFromLocalStorage();
+        }
+
+        // Populate teacher select
+        function populateTeacherSelect() {
+            const select = document.getElementById('teacher-select');
+            const addSelect = document.getElementById('add-available-teacher');
+
+            select.innerHTML = '<option value="">-- בחר מורה --</option>';
+            addSelect.innerHTML = '<option value="">-- בחר מורה --</option>';
+
+            allTeachers.forEach(teacher => {
+                select.innerHTML += `<option value="${teacher}">${teacher}</option>`;
+                addSelect.innerHTML += `<option value="${teacher}">${teacher}</option>`;
+            });
+            select.innerHTML += '<option value="other">אחר (הזן ידנית)</option>';
+        }
+        populateTeacherSelect();
+        populateTripTeacherSelect();
+
+        // Update connection status
+        function updateConnectionStatus(online) {
+            const statusEl = document.getElementById('connection-status');
+            const textEl = document.getElementById('connection-text');
+            if (online) {
+                statusEl.className = 'connection-status online';
+                textEl.textContent = 'מחובר לענן';
+            } else {
+                statusEl.className = 'connection-status offline';
+                textEl.textContent = 'מצב לא מקוון';
+            }
+        }
+
+        // Check if reporting is locked for a day
+        // Rule: Day X reporting locks at 22:30 on day X-1 (the evening before)
+        function isDayLocked(targetDay) {
+            // Check if day was manually unlocked by admin
+            if (unlockedDaysData[targetDay]) {
+                return false; // Manually unlocked
+            }
+
+            const now = new Date();
+            const todayDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const isPast2230 = currentHour > LOCKOUT_HOUR || (currentHour === LOCKOUT_HOUR && currentMinute >= LOCKOUT_MINUTE);
+
+            // Saturday (6) has no school - always show "no school" message
+            if (targetDay === 6) {
+                return 'shabbat'; // Special case - not locked, just no school
+            }
+
+            // Calculate the day before the target day
+            const dayBefore = targetDay === 0 ? 6 : targetDay - 1;
+
+            // Calculate "tomorrow" from today's perspective
+            const tomorrow = (todayDay + 1) % 7;
+
+            // If target day already passed this week (target < today, except Sat->Sun)
+            if (targetDay < todayDay && !(targetDay === 0 && todayDay === 6)) {
+                return true; // Past day - locked
+            }
+
+            // If target is today - locked (can't report same day)
+            if (targetDay === todayDay) {
+                return true;
+            }
+
+            // Special case: target is Sunday (0) and today is Saturday (6)
+            // Sunday is "tomorrow" from Saturday
+            if (targetDay === 0 && todayDay === 6) {
+                return isPast2230;
+            }
+
+            // If target is tomorrow
+            if (targetDay === tomorrow) {
+                return isPast2230;
+            }
+
+            // Target is more than 1 day in the future - open
+            return false;
+        }
+
+        // Unlock a day for reporting (admin function)
+        function unlockDay() {
+            const daySelect = document.getElementById('unlock-day-select');
+            const day = parseInt(daySelect.value);
+            if (isNaN(day)) {
+                alert('נא לבחור יום');
+                return;
+            }
+
+            unlockedDaysData[day] = true;
+
+            if (isOnline && database) {
+                database.ref('unlockedDays/' + day).set(true);
+            } else {
+                localStorage.setItem('unlockedDays', JSON.stringify(unlockedDaysData));
+            }
+
+            updateUnlockedDaysList();
+            updateLockedNotice();
+            alert(`יום ${dayNames[day]} נפתח לדיווחים!`);
+        }
+
+        // Lock a day (remove manual unlock)
+        function lockDay() {
+            const daySelect = document.getElementById('unlock-day-select');
+            const day = parseInt(daySelect.value);
+            if (isNaN(day)) {
+                alert('נא לבחור יום');
+                return;
+            }
+
+            delete unlockedDaysData[day];
+
+            if (isOnline && database) {
+                database.ref('unlockedDays/' + day).remove();
+            } else {
+                localStorage.setItem('unlockedDays', JSON.stringify(unlockedDaysData));
+            }
+
+            updateUnlockedDaysList();
+            updateLockedNotice();
+            alert(`יום ${dayNames[day]} ננעל`);
+        }
+
+        // Update unlocked days list display
+        function updateUnlockedDaysList() {
+            const container = document.getElementById('unlocked-days-list');
+            if (!container) return;
+
+            const unlockedList = Object.keys(unlockedDaysData).map(d => dayNames[parseInt(d)]);
+            if (unlockedList.length > 0) {
+                container.innerHTML = `🔓 ימים פתוחים: <strong>${unlockedList.join(', ')}</strong>`;
+            } else {
+                container.innerHTML = '';
+            }
+        }
+
+        // Update locked notice
+        function updateLockedNotice() {
+            const container = document.getElementById('locked-notice-container');
+            const formCard = document.getElementById('report-form-card');
+            const lockStatus = isDayLocked(currentDay);
+
+            if (lockStatus === 'shabbat') {
+                // Saturday - no school
+                container.innerHTML = `
+                    <div class="locked-notice" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
+                        <div class="lock-icon">🕯️</div>
+                        <h3>שבת שלום!</h3>
+                        <p>אין לימודים בשבת. בחר יום אחר לדיווח.</p>
+                    </div>
+                `;
+                formCard.style.display = 'none';
+            } else if (lockStatus === true) {
+                // Calculate which day the lock happened
+                const dayBefore = currentDay === 0 ? 6 : currentDay - 1;
+                container.innerHTML = `
+                    <div class="locked-notice">
+                        <div class="lock-icon">🔒</div>
+                        <h3>הדיווח ליום ${dayNames[currentDay]} נעול</h3>
+                        <p>הדיווח ננעל ביום ${dayNames[dayBefore]} בשעה ${LOCKOUT_HOUR}:${LOCKOUT_MINUTE.toString().padStart(2,'0')}</p>
+                    </div>
+                `;
+                formCard.style.display = 'none';
+            } else {
+                // Calculate when this day will lock
+                const dayBefore = currentDay === 0 ? 6 : currentDay - 1;
+                container.innerHTML = `
+                    <div class="card" style="background: #d4edda; border: 2px solid #28a745; margin-bottom: 20px;">
+                        <p style="margin: 0; color: #155724;">
+                            ⏰ <strong>שים לב:</strong> הדיווח ליום ${dayNames[currentDay]} ייסגר ביום ${dayNames[dayBefore]} בשעה ${LOCKOUT_HOUR}:${LOCKOUT_MINUTE.toString().padStart(2,'0')}
+                        </p>
+                    </div>
+                `;
+                formCard.style.display = 'block';
+            }
+        }
+
+        // Password modal functions
+        function showPasswordModal() {
+            document.getElementById('password-modal').classList.add('show');
+            document.getElementById('settings-password').value = '';
+            document.getElementById('settings-password').focus();
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.remove('show');
+        }
+
+        function checkSettingsPassword() {
+            const input = document.getElementById('settings-password').value;
+            if (input === SETTINGS_PASSWORD) {
+                settingsUnlocked = true;
+                closePasswordModal();
+                navigateToPage('settings');
+            } else {
+                alert('קוד שגוי!');
+                document.getElementById('settings-password').value = '';
+            }
+        }
+
+        // Handle Enter key in password input
+        document.getElementById('settings-password').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') checkSettingsPassword();
+        });
+
+        // Navigate to page
+        function navigateToPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            document.querySelector(`.nav-tab[data-page="${pageId}"]`).classList.add('active');
+            if (pageId === 'report') updateLockedNotice();
+            updateAllViews();
+        }
+
+
+        // Update honor board (points leaderboard)
+        function updateHonorBoard() {
+            const container = document.getElementById('honor-board-container');
+            if (!container) return;
+            const leaderboard = Object.entries(teacherPointsData)
+                .map(([name, points]) => ({ name, points }))
+                .filter(t => t.points > 0)
+                .sort((a, b) => b.points - a.points)
+                .slice(0, 5);
+            if (leaderboard.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML = `
+                <div class="honor-board">
+                    <h3>⭐ לוח כבוד - מתנדבים</h3>
+                    <div class="honor-list">
+                        ${leaderboard.map((t, i) => {
+                            const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                            return `<div class="honor-item ${rankClass}">
+                                <span class="rank">${i + 1}</span>
+                                <span class="name">${t.name}</span>
+                                <span class="points">${t.points} נק'</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+        }
+
+        function awardPoints(teacher, points = 1) {
+            if (!teacher) return;
+            teacherPointsData[teacher] = (teacherPointsData[teacher] || 0) + points;
+            if (isOnline && database) {
+                database.ref('teacherPoints/' + teacher.replace(/[.#$/\[\]]/g, '_')).set(teacherPointsData[teacher]);
+            } else {
+                localStorage.setItem('teacherPoints', JSON.stringify(teacherPointsData));
+            }
+            updateHonorBoard();
+        }
+
+        // Day selector
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                currentDay = parseInt(this.dataset.day);
+                document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                updateAllViews();
+            });
+        });
+
+        // Set current day active
+        document.querySelector(`.day-btn[data-day="${currentDay}"]`).classList.add('active');
+
+        // Navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const pageId = this.dataset.page;
+
+                // Check password for settings
+                if (pageId === 'settings' && !settingsUnlocked) {
+                    showPasswordModal();
+                    return;
+                }
+
+                navigateToPage(pageId);
+            });
+        });
+
+        // Teacher select - manual input
+        document.getElementById('teacher-select').addEventListener('change', function() {
+            const manualInput = document.getElementById('teacher-manual');
+            if (this.value === 'other') {
+                manualInput.style.display = 'block';
+                manualInput.focus();
+            } else {
+                manualInput.style.display = 'none';
+            }
+        });
+
+        // Hours selector
+        document.querySelectorAll('.hour-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.classList.toggle('selected');
+                updateSuggestionFields();
+            });
+        });
+
+        // Class selector for trips (in settings)
+        document.querySelectorAll('.class-btn:not(.trip-class-btn)').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.classList.toggle('selected');
+            });
+        });
+
+        // Trip class selector (single select)
+        document.querySelectorAll('.trip-class-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.trip-class-btn').forEach(b => b.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // Enable/disable save button
+        document.getElementById('reported-to-moshe').addEventListener('change', function() {
+            document.getElementById('save-btn').disabled = !this.checked;
+            document.getElementById('report-warning').style.display = this.checked ? 'none' : 'block';
+        });
+
+        // Load all data from Firebase
+        function loadAllData() {
+            if (!isOnline || !database) {
+                loadFromLocalStorage();
+                return;
+            }
+
+            database.ref('absences').on('value', (snapshot) => {
+                absencesData = snapshot.val() || {};
+
+                // Detect new absences for desktop notifications
+                const currentKeys = new Set(Object.keys(absencesData));
+                if (isFirstLoad) {
+                    // First load - just record existing keys, don't notify
+                    previousAbsenceKeys = currentKeys;
+                    isFirstLoad = false;
+                } else {
+                    // Find new keys that weren't there before
+                    currentKeys.forEach(key => {
+                        if (!previousAbsenceKeys.has(key)) {
+                            const absence = absencesData[key];
+                            // Only notify for today's absences
+                            if (absence && absence.day === currentDay) {
+                                showAbsenceNotification(absence);
+                            }
+                        }
+                    });
+                    previousAbsenceKeys = currentKeys;
+                }
+
+                updateAllViews();
+            });
+
+            database.ref('tripClasses').on('value', (snapshot) => {
+                tripClassesData = snapshot.val() || {};
+                updateTripClassesUI();
+                updateAllViews();
+            });
+
+            database.ref('availableTeachers').on('value', (snapshot) => {
+                availableTeachersData = snapshot.val() || {};
+                updateAllViews();
+            });
+
+            database.ref('teacherPoints').on('value', (snapshot) => {
+                const rawData = snapshot.val() || {};
+                teacherPointsData = {};
+                Object.entries(rawData).forEach(([key, value]) => {
+                    const teacher = allTeachers.find(t => t.replace(/[.#$/\[\]]/g, '_') === key) || key;
+                    teacherPointsData[teacher] = value;
+                });
+                updateHonorBoard();
+            });
+
+            database.ref('unlockedDays').on('value', (snapshot) => {
+                unlockedDaysData = snapshot.val() || {};
+                updateUnlockedDaysList();
+                updateLockedNotice();
+            });
+        }
+
+        // Load from localStorage
+        function loadFromLocalStorage() {
+            absencesData = JSON.parse(localStorage.getItem('absences') || '{}');
+            tripClassesData = JSON.parse(localStorage.getItem('tripClasses') || '{}');
+            availableTeachersData = JSON.parse(localStorage.getItem('availableTeachers') || '{}');
+            teacherPointsData = JSON.parse(localStorage.getItem('teacherPoints') || '{}');
+            unlockedDaysData = JSON.parse(localStorage.getItem('unlockedDays') || '{}');
+            updateTripClassesUI();
+            updateHonorBoard();
+            updateUnlockedDaysList();
+            updateAllViews();
+        }
+
+        // Update trip classes UI
+        function updateTripClassesUI() {
+            const dayTrips = tripClassesData[currentDay] || [];
+            const tripClassNames = dayTrips.map(t => typeof t === 'object' ? t.class : t);
+            document.querySelectorAll('.class-btn').forEach(btn => {
+                btn.classList.toggle('selected', tripClassNames.includes(btn.dataset.class));
+            });
+        }
+
+        // Save trip classes
+        function saveTripClasses() {
+            const selected = [];
+            document.querySelectorAll('.class-btn.selected').forEach(btn => {
+                selected.push(btn.dataset.class);
+            });
+
+            tripClassesData[currentDay] = selected;
+
+            if (isOnline && database) {
+                database.ref('tripClasses/' + currentDay).set(selected)
+                    .then(() => alert('נשמר!'));
+            } else {
+                localStorage.setItem('tripClasses', JSON.stringify(tripClassesData));
+                alert('נשמר!');
+            }
+            updateAllViews();
+        }
+
+        // Get selected hours
+        function getSelectedHours() {
+            const selected = [];
+            document.querySelectorAll('.hour-btn.selected').forEach(btn => {
+                selected.push(btn.dataset.hour);
+            });
+            return selected;
+        }
+
+        // Update suggestion fields based on selected hours
+        function updateSuggestionFields() {
+            const container = document.getElementById('suggestion-fields-container');
+            const hours = getSelectedHours();
+            if (hours.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            // Keep existing values
+            const existingValues = {};
+            container.querySelectorAll('textarea').forEach(ta => {
+                existingValues[ta.dataset.hour] = ta.value;
+            });
+            container.innerHTML = hours.map(hour => {
+                const hourId = 'suggestion-hour-' + hour.replace(' ', '_');
+                const existing = existingValues[hour] || '';
+                return `
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 0.85rem; color: #555;">שעה ${hour}:</label>
+                    <textarea id="${hourId}" data-hour="${hour}" rows="1" placeholder="מה ללמד בשעה ${hour}..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:0.9rem; resize:vertical;">${existing}</textarea>
+                </div>`;
+            }).join('');
+        }
+
+        // Save absence - creates separate entry for EACH hour
+        document.getElementById('save-btn').addEventListener('click', function() {
+            const teacherSelect = document.getElementById('teacher-select');
+            const teacherManual = document.getElementById('teacher-manual');
+            const teacher = teacherSelect.value === 'other' ? teacherManual.value : teacherSelect.value;
+            const hours = getSelectedHours();
+            const reason = document.getElementById('absence-reason').value;
+            const reportedToMoshe = document.getElementById('reported-to-moshe').checked;
+
+            if (!teacher) { alert('נא לבחור מורה'); return; }
+            if (hours.length === 0) { alert('נא לבחור לפחות שעה אחת'); return; }
+            if (!reportedToMoshe) { alert('חובה לדווח לרב משה!'); return; }
+
+            // Confirmation dialog
+            const dayName = dayNames[currentDay];
+            const hoursText = hours.join(', ');
+            const confirmMsg = `האם אתה בטוח שברצונך לדווח על היעדרות?\n\nמורה: ${teacher}\nיום: ${dayName}\nשעות: ${hoursText}`;
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            // Collect suggestions per hour
+            const suggestions = {};
+            hours.forEach(hour => {
+                const field = document.getElementById('suggestion-hour-' + hour.replace(' ', '_'));
+                if (field && field.value.trim()) {
+                    suggestions[hour] = field.value.trim();
+                }
+            });
+
+            // Create separate entry for EACH hour (so different substitutes can be assigned)
+            const timestamp = Date.now();
+            const promises = [];
+
+            hours.forEach((hour, index) => {
+                const absenceData = {
+                    teacher,
+                    day: currentDay,
+                    hour: hour, // Single hour instead of array
+                    reason,
+                    reportedToMoshe,
+                    substitute: '',
+                    suggestion: suggestions[hour] || '',
+                    createdAt: timestamp + index // Unique timestamp for each
+                };
+
+                const key = `${currentDay}_${timestamp}_${index}`;
+
+                if (isOnline && database) {
+                    promises.push(database.ref('absences/' + key).set(absenceData));
+                } else {
+                    absencesData[key] = absenceData;
+                }
+            });
+
+            if (isOnline && database) {
+                Promise.all(promises).then(() => { alert('נשמר!'); clearForm(); });
+            } else {
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                alert('נשמר!');
+                clearForm();
+                updateAllViews();
+            }
+        });
+
+        // Absent all day - select all hours the teacher works today
+        document.getElementById('all-day-btn').addEventListener('click', function() {
+            const teacherSelect = document.getElementById('teacher-select');
+            const teacherManual = document.getElementById('teacher-manual');
+            const teacher = teacherSelect.value === 'other' ? teacherManual.value : teacherSelect.value;
+
+            if (!teacher) {
+                alert('נא לבחור מורה תחילה');
+                return;
+            }
+
+            const schedule = teacherSchedule[teacher];
+            if (!schedule) {
+                alert('לא נמצא מידע על המורה הזה');
+                return;
+            }
+
+            // Get today's hours for this teacher
+            const todayHours = schedule.dayHours ? (schedule.dayHours[currentDay] || []) : [];
+
+            if (todayHours.length === 0) {
+                alert(`${teacher} לא מלמד ביום ${dayNames[currentDay]}`);
+                return;
+            }
+
+            // Clear current selection and select all of today's hours
+            document.querySelectorAll('.hour-btn').forEach(btn => {
+                const hour = btn.dataset.hour;
+                if (todayHours.includes(hour)) {
+                    btn.classList.add('selected');
+                } else {
+                    btn.classList.remove('selected');
+                }
+            });
+
+            alert(`נבחרו כל השעות שבהן ${teacher} מלמד ביום ${dayNames[currentDay]}: ${todayHours.join(', ')}`);
+            updateSuggestionFields();
+        });
+
+        // Clear form
+        document.getElementById('clear-btn').addEventListener('click', clearForm);
+        function clearForm() {
+            document.getElementById('teacher-select').value = '';
+            document.getElementById('teacher-manual').value = '';
+            document.getElementById('teacher-manual').style.display = 'none';
+            document.getElementById('absence-reason').value = '';
+            document.getElementById('reported-to-moshe').checked = false;
+            document.getElementById('save-btn').disabled = true;
+            document.getElementById('report-warning').style.display = 'block';
+            document.querySelectorAll('.hour-btn').forEach(btn => btn.classList.remove('selected'));
+            document.getElementById('suggestion-fields-container').innerHTML = '';
+        }
+
+        // Add available teacher
+        function addAvailableTeacher() {
+            const teacher = document.getElementById('add-available-teacher').value;
+            const hoursInput = document.getElementById('add-available-hours').value;
+
+            if (!teacher) { alert('נא לבחור מורה'); return; }
+            if (!hoursInput) { alert('נא להזין שעות'); return; }
+
+            const hours = hoursInput.split(',').map(h => h.trim());
+            const key = `${currentDay}_${teacher}`;
+
+            const data = { teacher, day: currentDay, hours, manual: true };
+
+            if (isOnline && database) {
+                database.ref('availableTeachers/' + key).set(data)
+                    .then(() => {
+                        alert('נוסף!');
+                        document.getElementById('add-available-teacher').value = '';
+                        document.getElementById('add-available-hours').value = '';
+                    });
+            } else {
+                availableTeachersData[key] = data;
+                localStorage.setItem('availableTeachers', JSON.stringify(availableTeachersData));
+                alert('נוסף!');
+                document.getElementById('add-available-teacher').value = '';
+                document.getElementById('add-available-hours').value = '';
+                updateAllViews();
+            }
+        }
+
+        // Check if a teacher is a מחנך of a class with parallel
+        function getTeacherParallelClass(teacher, day) {
+            // Check if this teacher is a מחנך of a class with parallels
+            for (const [subClass, mechanchTeacher] of Object.entries(classMechanech)) {
+                if (mechanchTeacher === teacher) {
+                    const baseClass = subClass.charAt(0);
+                    if (classesWithParallel.includes(baseClass)) {
+                        return baseClass;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Update merge suggestions (shown in substitute page)
+        function updateMergeSuggestions() {
+            const section = document.getElementById('merge-section');
+            const container = document.getElementById('merge-suggestions-scroll');
+            if (!section || !container) return;
+
+            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => a.day === currentDay);
+
+            // Filter absences that can potentially be merged
+            const mergeable = [];
+
+            dayAbsences.forEach(([id, a]) => {
+                if (a.merged || a.substitute) return; // Already handled
+
+                const absenceHour = a.hour || (a.hours ? a.hours[0] : '');
+                if (!absenceHour) return;
+
+                const parallelClass = getTeacherParallelClass(a.teacher, currentDay);
+                if (parallelClass) {
+                    // Find covering teacher
+                    const subClasses = parallelClasses[parallelClass];
+                    const coveringTeacher = subClasses
+                        ? subClasses.map(sc => classMechanech[sc]).find(t => t !== a.teacher)
+                        : null;
+
+                    // Only suggest merge if covering teacher actually teaches at this hour
+                    if (coveringTeacher) {
+                        const coveringSchedule = teacherSchedule[coveringTeacher];
+                        const coveringHours = coveringSchedule?.dayHours?.[currentDay] || [];
+                        if (coveringHours.includes(absenceHour)) {
+                            mergeable.push({
+                                id,
+                                teacher: a.teacher,
+                                hour: absenceHour,
+                                parallelClass,
+                                coveringTeacher
+                            });
+                        }
+                    }
+                } else {
+                    // Non-parallel class - suggest merging with adjacent class
+                    const absentSubClass = Object.entries(classMechanech).find(([cls, t]) => t === a.teacher)?.[0];
+                    if (absentSubClass && !classesWithParallel.includes(absentSubClass.charAt(0))) {
+                        const classIdx = classNames.indexOf(absentSubClass.charAt(0));
+                        const adjacentOptions = [];
+                        if (classIdx > 0) adjacentOptions.push(classNames[classIdx - 1]);
+                        if (classIdx < classNames.length - 1) adjacentOptions.push(classNames[classIdx + 1]);
+
+                        adjacentOptions.forEach(adjClass => {
+                            // For adjacent classes, find the מחנך (could be sub-classes)
+                            let adjTeacher = classMechanech[adjClass] || null;
+                            if (!adjTeacher) {
+                                // Try sub-classes (e.g. ד1, ד2)
+                                const adjSubs = parallelClasses[adjClass];
+                                if (adjSubs) {
+                                    // Find one that teaches at this hour
+                                    adjTeacher = adjSubs.map(sc => classMechanech[sc]).find(t => {
+                                        const sch = teacherSchedule[t];
+                                        return sch?.dayHours?.[currentDay]?.includes(absenceHour);
+                                    });
+                                }
+                            }
+
+                            // Only suggest if adjacent teacher actually teaches at this hour
+                            if (adjTeacher) {
+                                const adjSchedule = teacherSchedule[adjTeacher];
+                                const adjHours = adjSchedule?.dayHours?.[currentDay] || [];
+                                if (adjHours.includes(absenceHour)) {
+                                    mergeable.push({
+                                        id,
+                                        teacher: a.teacher,
+                                        hour: absenceHour,
+                                        parallelClass: adjClass,
+                                        coveringTeacher: adjTeacher,
+                                        isAdjacent: true
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Show/hide section based on suggestions
+            if (mergeable.length === 0) {
+                section.style.display = 'none';
+            } else {
+                section.style.display = 'block';
+                container.innerHTML = mergeable.map(m => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 8px;">
+                        <div>
+                            <strong>${m.teacher}</strong> - שעה ${m.hour}
+                            <br><small style="color: #666;">
+                                ${m.isAdjacent ? `כיתה סמוכה ${m.parallelClass}` : `כיתה ${m.parallelClass}`} -
+                                ${m.coveringTeacher} יכסה
+                            </small>
+                        </div>
+                        <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}')">🔗 אחד</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Approve a merge
+        function approveMerge(id, parallelClass) {
+            const absence = absencesData[id];
+            if (!absence) return;
+
+            // Find the covering teacher (parallel sub-class מחנך)
+            const absentTeacherSubClass = Object.entries(classMechanech)
+                .find(([cls, t]) => t === absence.teacher)?.[0];
+
+            // Find the OTHER sub-class teacher who will cover
+            const parallelSubClasses = parallelClasses[parallelClass];
+            let coveringTeacher = null;
+            if (parallelSubClasses) {
+                coveringTeacher = parallelSubClasses
+                    .map(sc => classMechanech[sc])
+                    .find(t => t !== absence.teacher);
+            }
+
+            const coverName = coveringTeacher || 'איחוד כיתות';
+
+            if (!confirm(`לאשר איחוד כיתה ${parallelClass}?\n${coverName} יכסה את השעה`)) return;
+
+            const updateData = {
+                merged: true,
+                mergedClass: parallelClass,
+                substitute: coverName
+            };
+
+            if (isOnline && database) {
+                database.ref('absences/' + id).update(updateData);
+            } else {
+                Object.assign(absencesData[id], updateData);
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                updateAllViews();
+            }
+        }
+
+        // Cancel a merge
+        function cancelMerge(id) {
+            if (!confirm('לבטל את האיחוד?')) return;
+
+            if (isOnline && database) {
+                database.ref('absences/' + id).update({
+                    merged: null,
+                    mergedClass: null,
+                    substitute: ''
+                });
+            } else {
+                delete absencesData[id].merged;
+                delete absencesData[id].mergedClass;
+                absencesData[id].substitute = '';
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                updateAllViews();
+            }
+        }
+
+        // Populate all trip teacher selects
+        function populateTripTeacherSelect() {
+            document.querySelectorAll('.trip-teacher-select').forEach(select => {
+                const currentVal = select.value;
+                select.innerHTML = '<option value="">-- בחר מורה מלווה --</option>';
+                allTeachers.forEach(teacher => {
+                    select.innerHTML += `<option value="${teacher}">${teacher}</option>`;
+                });
+                if (currentVal) select.value = currentVal;
+            });
+        }
+
+        // Add another teacher row for trip
+        function addTripTeacherRow() {
+            const container = document.getElementById('trip-teachers-container');
+            const row = document.createElement('div');
+            row.className = 'trip-teacher-row';
+            row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center;';
+            const select = document.createElement('select');
+            select.className = 'trip-teacher-select';
+            select.style.cssText = 'flex: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px;';
+            select.innerHTML = '<option value="">-- בחר מורה מלווה --</option>';
+            allTeachers.forEach(teacher => {
+                select.innerHTML += `<option value="${teacher}">${teacher}</option>`;
+            });
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-danger btn-sm';
+            removeBtn.textContent = '✕';
+            removeBtn.style.cssText = 'padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer;';
+            removeBtn.onclick = () => row.remove();
+            row.appendChild(select);
+            row.appendChild(removeBtn);
+            container.appendChild(row);
+        }
+
+        // Save trip
+        function saveTrip() {
+            const selectedClass = document.querySelector('.trip-class-btn.selected');
+
+            if (!selectedClass) {
+                alert('נא לבחור כיתה');
+                return;
+            }
+
+            const classOnTrip = selectedClass.dataset.class;
+
+            // Collect all selected teachers
+            const selectedTeachers = [];
+            document.querySelectorAll('.trip-teacher-select').forEach(select => {
+                if (select.value) selectedTeachers.push(select.value);
+            });
+
+            // Add to tripClassesData
+            if (!tripClassesData[currentDay]) {
+                tripClassesData[currentDay] = [];
+            }
+
+            // Store as object with class and teachers array
+            const tripInfo = {
+                class: classOnTrip,
+                teachers: selectedTeachers.length > 0 ? selectedTeachers : [],
+                // Backward compat: keep teacher field too
+                teacher: selectedTeachers.length > 0 ? selectedTeachers[0] : null,
+                timestamp: Date.now()
+            };
+
+            // Check if class already on trip
+            const existingIndex = tripClassesData[currentDay].findIndex(t =>
+                (typeof t === 'object' ? t.class : t) === classOnTrip
+            );
+
+            if (existingIndex >= 0) {
+                tripClassesData[currentDay][existingIndex] = tripInfo;
+            } else {
+                tripClassesData[currentDay].push(tripInfo);
+            }
+
+            // Auto-create absences for accompanying teachers
+            // Skip hours where teacher teaches the trip class (no substitute needed)
+            const autoCreateAbsences = () => {
+                if (!isOnline || !database) return;
+                selectedTeachers.forEach(teacher => {
+                    const schedule = teacherSchedule[teacher];
+                    const todayHours = schedule?.dayHours?.[currentDay] || [];
+                    todayHours.forEach(hour => {
+                        // Get which class this teacher teaches at this hour
+                        const classAtHour = getTeacherClassAtHour(teacher, currentDay, hour);
+
+                        // Skip if teacher teaches the trip class at this hour
+                        if (classAtHour === classOnTrip) return;
+
+                        // Check if absence already exists
+                        const exists = Object.values(absencesData).some(a =>
+                            a.day === currentDay && a.teacher === teacher && (a.hour === hour || (a.hours && a.hours.includes(hour)))
+                        );
+                        if (!exists) {
+                            const key = `${currentDay}_trip_${teacher}_${hour}`;
+                            const absenceData = {
+                                teacher, day: currentDay, hour,
+                                classAtHour: classAtHour || '',
+                                reason: `מלווה בטיול כיתה ${classOnTrip}`,
+                                tripRelated: true,
+                                reportedToMoshe: true,
+                                substitute: '', createdAt: Date.now()
+                            };
+                            database.ref('absences/' + key).set(absenceData);
+                        }
+                    });
+                });
+            };
+
+            const resetForm = () => {
+                selectedClass.classList.remove('selected');
+                // Reset teacher selects - keep only first row
+                const container = document.getElementById('trip-teachers-container');
+                const rows = container.querySelectorAll('.trip-teacher-row');
+                rows.forEach((row, i) => {
+                    if (i === 0) {
+                        row.querySelector('select').value = '';
+                    } else {
+                        row.remove();
+                    }
+                });
+            };
+
+            if (isOnline && database) {
+                database.ref('tripClasses/' + currentDay).set(tripClassesData[currentDay])
+                    .then(() => {
+                        autoCreateAbsences();
+                        alert('טיול נשמר!');
+                        resetForm();
+                        updateAllViews();
+                    });
+            } else {
+                localStorage.setItem('tripClasses', JSON.stringify(tripClassesData));
+                alert('טיול נשמר!');
+                resetForm();
+                updateAllViews();
+            }
+        }
+
+        // Update trips today list
+        function updateTripsToday() {
+            const container = document.getElementById('trips-today-list');
+            if (!container) return;
+
+            const trips = tripClassesData[currentDay] || [];
+
+            if (trips.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">🚌</div><p>אין טיולים היום</p></div>';
+                return;
+            }
+
+            container.innerHTML = trips.map((trip, index) => {
+                // Support both old format (string) and new format (object)
+                const classOnTrip = typeof trip === 'object' ? trip.class : trip;
+                // Support both old single teacher and new teachers array
+                const teachers = typeof trip === 'object'
+                    ? (trip.teachers && trip.teachers.length > 0 ? trip.teachers : (trip.teacher ? [trip.teacher] : []))
+                    : [];
+                const teacherDisplay = teachers.length > 0
+                    ? 'מלווים: ' + teachers.join(', ')
+                    : 'ללא מלווה רשום';
+
+                return `
+                    <div class="absence-item" style="border-right-color: #ffc107; background: #fff3cd;">
+                        <div class="absence-info">
+                            <div class="name">🚌 כיתה ${classOnTrip} בטיול</div>
+                            <div class="details">${teacherDisplay}</div>
+                        </div>
+                        <button class="delete-btn" onclick="removeTrip('${classOnTrip}')">🗑️</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Remove trip
+        function removeTrip(classToRemove) {
+            if (!confirm(`להסיר את כיתה ${classToRemove} מהטיולים?`)) return;
+
+            // Find the trip to get accompanying teachers before removing
+            const tripToRemove = (tripClassesData[currentDay] || []).find(t =>
+                (typeof t === 'object' ? t.class : t) === classToRemove
+            );
+
+            tripClassesData[currentDay] = (tripClassesData[currentDay] || []).filter(t =>
+                (typeof t === 'object' ? t.class : t) !== classToRemove
+            );
+
+            if (isOnline && database) {
+                database.ref('tripClasses/' + currentDay).set(tripClassesData[currentDay]);
+
+                // Remove auto-created trip absences
+                if (tripToRemove && typeof tripToRemove === 'object') {
+                    const teachers = tripToRemove.teachers || (tripToRemove.teacher ? [tripToRemove.teacher] : []);
+                    Object.entries(absencesData).forEach(([id, a]) => {
+                        if (a.tripRelated && a.day === currentDay && teachers.includes(a.teacher)) {
+                            database.ref('absences/' + id).remove();
+                        }
+                    });
+                }
+            } else {
+                localStorage.setItem('tripClasses', JSON.stringify(tripClassesData));
+            }
+            updateAllViews();
+        }
+
+        // Calculate who is available based on schedule and trips
+        function calculateAvailableTeachers() {
+            const trips = tripClassesData[currentDay] || [];
+            // Support both old format (string) and new format (object)
+            const tripClassNames = trips.map(t => typeof t === 'object' ? t.class : t);
+            // Get teachers who are accompanying trips (support both single teacher and teachers array)
+            const teachersOnTrip = [];
+            trips.forEach(t => {
+                if (typeof t !== 'object') return;
+                if (t.teachers && t.teachers.length > 0) {
+                    teachersOnTrip.push(...t.teachers);
+                } else if (t.teacher) {
+                    teachersOnTrip.push(t.teacher);
+                }
+            });
+
+            const required = [];
+            const optional = [];
+            const notWorking = [];
+
+            // Get all hours that need coverage from today's absences
+            const dayAbsences = Object.values(absencesData).filter(a => a.day === currentDay);
+            const hoursNeeded = new Set();
+            dayAbsences.forEach(a => {
+                if (a.hours) a.hours.forEach(h => hoursNeeded.add(h));
+            });
+
+            Object.entries(teacherSchedule).forEach(([teacher, schedule]) => {
+                const worksToday = schedule.days.includes(currentDay);
+
+                // If teacher is accompanying a trip, they're not available
+                if (teachersOnTrip.includes(teacher)) {
+                    notWorking.push({ name: teacher, reason: 'מלווה בטיול' });
+                    return;
+                }
+
+                if (!worksToday) {
+                    notWorking.push({ name: teacher, reason: 'לא עובד היום' });
+                    return;
+                }
+
+                // Get day-specific classes for this teacher
+                const todayClasses = schedule.dayClasses ? (schedule.dayClasses[currentDay] || []) : [];
+
+                // Check if any of their classes TODAY is on a trip
+                const classesOnTrip = todayClasses.filter(c => tripClassNames.includes(c));
+
+                // Get today's teaching hours (use dayHours if available, otherwise use hours)
+                const todayTeachingHours = schedule.dayHours
+                    ? (schedule.dayHours[currentDay] || [])
+                    : (schedule.hours || []);
+
+                if (classesOnTrip.length > 0) {
+                    const classNames = classesOnTrip.join(', ');
+                    required.push({
+                        name: teacher,
+                        hours: todayTeachingHours,
+                        reason: `כיתה ${classNames} בטיול`,
+                        hakbatza: schedule.hakbatza
+                    });
+                } else if (schedule.permanent) {
+                    // Permanent substitute (הרב צביקה)
+                    // Calculate free hours for permanent substitute too
+                    const allHours = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+                    const permFreeHours = allHours.filter(h => !todayTeachingHours.includes(h));
+                    optional.push({
+                        name: teacher,
+                        hours: permFreeHours.length > 0 ? permFreeHours : allHours,
+                        teachingHours: todayTeachingHours,
+                        reason: 'ממלא מקום קבוע',
+                        priority: 1
+                    });
+                } else {
+                    // Teachers who work today but might be free at certain hours
+                    // Calculate which hours they DON'T teach TODAY
+                    const allHours = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+                    const freeHours = allHours.filter(h => !todayTeachingHours.includes(h));
+
+                    if (freeHours.length > 0) {
+                        optional.push({
+                            name: teacher,
+                            hours: freeHours,
+                            teachingHours: todayTeachingHours,
+                            reason: 'פנוי בשעות מסוימות',
+                            priority: 2
+                        });
+                    }
+                }
+            });
+
+            // Add manually added available teachers
+            Object.values(availableTeachersData).forEach(t => {
+                if (t.day === currentDay && t.manual) {
+                    optional.push({
+                        name: t.teacher,
+                        hours: t.hours,
+                        reason: 'נוסף ידנית',
+                        priority: 0
+                    });
+                }
+            });
+
+            // Sort optional by priority
+            optional.sort((a, b) => (a.priority || 99) - (b.priority || 99));
+
+            return { required, optional, notWorking };
+        }
+
+        // Update trip indicator (above tabs)
+        function updateTripIndicator() {
+            const indicator = document.getElementById('trip-indicator');
+            const text = document.getElementById('trip-indicator-text');
+            const trips = tripClassesData[currentDay] || [];
+
+            if (trips.length > 0) {
+                indicator.style.display = 'block';
+                // Support both old format (string) and new format (object)
+                const classNames = trips.map(t => typeof t === 'object' ? t.class : t);
+                text.textContent = `כיתות בטיול היום: ${classNames.join(', ')}`;
+            } else {
+                indicator.style.display = 'none';
+            }
+        }
+
+        // Update all views
+        function updateAllViews() {
+            document.getElementById('current-day-name').textContent = 'יום ' + dayNames[currentDay];
+            updateTripClassesUI();
+            updateTripNotice();
+            updateTripIndicator();
+            updateTripsToday();
+            updateStats();
+            updateTodayList();
+            updateAvailableTeachers();
+            updateAssignmentsList();
+            updateMergeSuggestions();
+            updateLockedNotice();
+            updateSuggestionsList();
+            updateHonorBoard();
+        }
+
+        // Update trip notice
+        function updateTripNotice() {
+            const container = document.getElementById('trip-notice-container');
+            const tripClasses = tripClassesData[currentDay] || [];
+
+            if (tripClasses.length > 0) {
+                const classNamesList = tripClasses.map(t => typeof t === 'object' ? t.class : t);
+                container.innerHTML = `
+                    <div class="trip-notice">
+                        <span class="icon">🚌</span>
+                        <span>כיתות בטיול היום: <strong>${classNamesList.join(', ')}</strong></span>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '';
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            const dayAbsences = Object.values(absencesData).filter(a => a.day === currentDay);
+            const { required, optional } = calculateAvailableTeachers();
+
+            document.getElementById('stat-absent').textContent = dayAbsences.length;
+            document.getElementById('stat-assigned').textContent = dayAbsences.filter(a => a.substitute).length;
+            document.getElementById('stat-available').textContent = required.length + optional.length;
+        }
+
+        // Update today's list
+        function updateTodayList() {
+            const container = document.getElementById('today-list');
+            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => a.day === currentDay);
+
+            if (dayAbsences.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">🎉</div><p>אין היעדרויות!</p></div>';
+                return;
+            }
+
+            container.innerHTML = dayAbsences.map(([id, a]) => {
+                // Support both old format (hours array) and new format (single hour)
+                const hourDisplay = a.hour ? a.hour : (a.hours ? a.hours.join(', ') : '');
+                const currentHour = a.hour || (a.hours ? a.hours[0] : null);
+                // Get class info - from saved data or from schedule
+                const classAtHour = a.classAtHour || (currentHour ? getTeacherClassAtHour(a.teacher, currentDay, currentHour) : null);
+                const classDisplay = classAtHour ? ` | כיתה ${classAtHour}` : '';
+                const statusColor = a.substitute ? '#28a745' : a.merged ? '#2196f3' : '#667eea';
+                const statusText = a.substitute
+                    ? `ממלא מקום: <strong>${a.substitute}</strong>`
+                    : a.merged
+                    ? `🔗 כיתה ${a.mergedClass || a.mergedWith} אוחדה`
+                    : '';
+                return `
+                <div class="absence-item" style="border-right-color: ${statusColor}">
+                    <div class="absence-info">
+                        <div class="name">${a.teacher}</div>
+                        <div class="details">
+                            שעה: ${hourDisplay}${classDisplay}
+                            ${a.reason ? ' | ' + a.reason : ''}
+                            ${statusText ? ' | ' + statusText : ''}
+                        </div>
+                    </div>
+                    <button class="delete-btn" onclick="deleteAbsence('${id}')">🗑️</button>
+                </div>
+            `}).join('');
+        }
+
+        // Update available teachers
+        function updateAvailableTeachers() {
+            const { required, optional, notWorking } = calculateAvailableTeachers();
+
+            // Required
+            const reqContainer = document.getElementById('required-teachers-list');
+            if (required.length === 0) {
+                reqContainer.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>אין כיתות בטיול</p></div>';
+            } else {
+                reqContainer.innerHTML = required.map(t => {
+                    const contactMsg = `שלום ${t.name}, הכיתה שלך בטיול היום (יום ${dayNames[currentDay]}). האם תוכל בבקשה למלא מקום בשעות ${t.hours.join(', ')}? תודה רבה!`;
+                    return `
+                    <div class="teacher-card required">
+                        <div style="flex: 1;">
+                            <div class="teacher-name">${t.name}</div>
+                            <div class="teacher-hours">${t.reason} ${t.hakbatza ? '(' + t.hakbatza + ')' : ''} | שעות: ${t.hours.join(', ')}</div>
+                        </div>
+                        <div class="contact-buttons">${getContactButtonsHTML(t.name, contactMsg)}</div>
+                        <span class="badge badge-required">חובה</span>
+                    </div>
+                `}).join('');
+            }
+
+            // Optional
+            const optContainer = document.getElementById('available-teachers-list');
+            if (optional.length === 0) {
+                optContainer.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>אין מורים פנויים</p></div>';
+            } else {
+                optContainer.innerHTML = optional.map(t => {
+                    let hoursInfo = '';
+                    if (t.reason === 'פנוי בשעות מסוימות') {
+                        hoursInfo = `שעות פנויות: <strong>${t.hours.join(', ')}</strong> | מלמד בשעות: ${t.teachingHours.join(', ')}`;
+                    } else {
+                        hoursInfo = `${t.reason} | שעות: ${t.hours.join(', ')}`;
+                    }
+                    const contactMsg = `שלום ${t.name}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]}) בשעות ${t.hours.join(', ')}? תודה רבה!`;
+                    return `
+                    <div class="teacher-card">
+                        <div style="flex: 1;">
+                            <div class="teacher-name">${t.name}</div>
+                            <div class="teacher-hours">${hoursInfo}</div>
+                        </div>
+                        <div class="contact-buttons">${getContactButtonsHTML(t.name, contactMsg)}</div>
+                        <span class="badge badge-optional">${t.reason === 'ממלא מקום קבוע' ? 'קבוע' : 'פנוי'}</span>
+                    </div>
+                `}).join('');
+            }
+
+            // Not working
+            const nwContainer = document.getElementById('not-working-teachers-list');
+            if (notWorking.length === 0) {
+                nwContainer.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>כולם עובדים היום</p></div>';
+            } else {
+                nwContainer.innerHTML = notWorking.map(t => `
+                    <div class="teacher-card not-working">
+                        <div>
+                            <div class="teacher-name">${t.name}</div>
+                            <div class="teacher-hours">${t.reason}</div>
+                        </div>
+                        <span class="badge badge-not-working">לא עובד</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Get teachers available at a specific hour
+        function getTeachersAvailableAtHour(hour) {
+            const { required, optional } = calculateAvailableTeachers();
+            const allAvailable = [...required, ...optional];
+
+            // Filter to only teachers who are free at THIS specific hour
+            const filtered = allAvailable.filter(t => t.hours.includes(hour)).map(t => ({
+                ...t,
+                isRequired: required.some(r => r.name === t.name)
+            }));
+
+            // Always add הרב צביקה as permanent substitute (if not already in list)
+            if (!filtered.some(t => t.name === 'הרב צביקה')) {
+                filtered.push({
+                    name: 'הרב צביקה',
+                    hours: ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'],
+                    reason: 'ממלא מקום קבוע',
+                    isRequired: false,
+                    isPermanent: true
+                });
+            }
+
+            return filtered;
+        }
+
+        // Update assignments list
+        function updateAssignmentsList() {
+            const container = document.getElementById('assignments-list');
+            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => a.day === currentDay);
+
+            if (dayAbsences.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>אין היעדרויות לשיבוץ</p></div>';
+                return;
+            }
+
+            // Sort by hour for better organization
+            dayAbsences.sort((a, b) => {
+                const hourOrder = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+                const hourA = a[1].hour || (a[1].hours ? a[1].hours[0] : '');
+                const hourB = b[1].hour || (b[1].hours ? b[1].hours[0] : '');
+                return hourOrder.indexOf(hourA) - hourOrder.indexOf(hourB);
+            });
+
+            container.innerHTML = dayAbsences.map(([id, a]) => {
+                // Support both old format (hours array) and new format (single hour)
+                const hourDisplay = a.hour ? a.hour : (a.hours ? a.hours.join(', ') : '');
+                const currentHour = a.hour || (a.hours ? a.hours[0] : null);
+                // Get class info
+                const classAtHour = a.classAtHour || (currentHour ? getTeacherClassAtHour(a.teacher, currentDay, currentHour) : null);
+                const classInfo = classAtHour ? ` (כיתה ${classAtHour})` : '';
+
+                // Merged absence - show as assigned with blue indicator
+                if (a.merged) {
+                    return `
+                    <div class="absence-item" style="border-right-color: #2196f3; background: #e3f2fd;">
+                        <div class="absence-info">
+                            <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
+                            <div class="details">🔗 איחוד כיתה ${a.mergedClass || ''} | מכסה: <strong>${a.substitute || 'איחוד כיתות'}</strong></div>
+                        </div>
+                        <button class="btn-merge" onclick="cancelMerge('${id}')" style="background: #dc3545; font-size: 0.8rem;">↩️ בטל</button>
+                    </div>
+                    `;
+                }
+
+                // Get teachers available at THIS specific hour
+                const availableAtHour = currentHour ? getTeachersAvailableAtHour(currentHour) : [];
+                const options = availableAtHour.length > 0
+                    ? availableAtHour.map(t =>
+                        `<option value="${t.name}">${t.name} ${t.isRequired ? '(חובה)' : '(פנוי)'}</option>`
+                      ).join('')
+                    : '<option value="" disabled>אין מורים פנויים בשעה זו</option>';
+
+                const contactBtnId = `contact-${id}`;
+                return `
+                <div class="absence-item" style="border-right-color: ${a.substitute ? '#28a745' : '#ffc107'}">
+                    <div class="absence-info">
+                        <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
+                        <div class="details">חסר בשעה ${hourDisplay}${classInfo}${a.tripRelated ? ' | 🚌 מלווה בטיול' : ''}${a.suggestion ? ' | <span style="cursor:pointer;" onclick="toggleSuggestion(this)" title="לחץ לצפייה">📖 יש הנחיות</span>' : ''}</div>
+                        ${a.suggestion ? `<div class="suggestion-detail" style="display:none; margin-top:6px; padding:8px; background:#fff3e0; border-radius:8px; border-right:3px solid #ff9800; font-size:0.9rem;">📖 <strong>הנחיות:</strong> ${a.suggestion}</div>` : ''}
+                    </div>
+                    <div class="absence-status">
+                        <select class="substitute-select" onchange="assignSubstitute('${id}', this.value); updateContactBtn('${id}', this.value, '${hourDisplay}', '${classAtHour || ''}')">
+                            <option value="">-- בחר ממלא מקום --</option>
+                            ${options}
+                            <option value="other">אחר...</option>
+                        </select>
+                        ${a.substitute ? `<span class="status-badge reported">✓ ${a.substitute}</span>` : ''}
+                        <span id="${contactBtnId}" class="contact-buttons" style="margin-top:4px;">
+                            ${a.substitute ? getContactButtonsHTML(a.substitute, `שלום ${a.substitute}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`) : ''}
+                        </span>
+                    </div>
+                </div>
+            `}).join('');
+
+            // Set current values
+            dayAbsences.forEach(([id, a]) => {
+                if (a.substitute) {
+                    const select = container.querySelector(`select[onchange*="${id}"]`);
+                    if (select) select.value = a.substitute;
+                }
+            });
+        }
+
+        // Update suggestions page
+        function updateSuggestionsList() {
+            const container = document.getElementById('suggestions-list');
+            const dayNameSpan = document.getElementById('suggestions-day-name');
+            if (dayNameSpan) dayNameSpan.textContent = dayNames[currentDay];
+            if (!container) return;
+
+            const dayAbsences = Object.entries(absencesData).filter(([id, a]) =>
+                a.day === currentDay && a.suggestion && a.suggestion.trim() !== ''
+            );
+
+            if (dayAbsences.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>אין הנחיות מהמורים להיום</p></div>';
+                return;
+            }
+
+            // Group by teacher
+            const byTeacher = {};
+            dayAbsences.forEach(([id, a]) => {
+                if (!byTeacher[a.teacher]) byTeacher[a.teacher] = [];
+                byTeacher[a.teacher].push(a);
+            });
+
+            container.innerHTML = Object.entries(byTeacher).map(([teacher, absences]) => {
+                const hoursList = absences.sort((a, b) => {
+                    const hourOrder = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+                    return hourOrder.indexOf(a.hour) - hourOrder.indexOf(b.hour);
+                }).map(a => {
+                    const classAtHour = a.classAtHour || getTeacherClassAtHour(teacher, currentDay, a.hour);
+                    const classInfo = classAtHour ? ` (כיתה ${classAtHour})` : '';
+                    const substituteInfo = a.substitute ? ` | ממלא מקום: <strong>${a.substitute}</strong>` : ' | <span style="color:#e53935;">טרם שובץ</span>';
+                    return `
+                    <div style="padding: 10px; margin: 6px 0; background: white; border-radius: 10px; border-right: 4px solid #ff9800;">
+                        <div style="font-weight: bold; color: #e65100;">⏰ שעה ${a.hour}${classInfo}${substituteInfo}</div>
+                        <div style="margin-top: 6px; color: #333; white-space: pre-wrap;">📖 ${a.suggestion}</div>
+                    </div>`;
+                }).join('');
+
+                return `
+                <div style="margin-bottom: 16px;">
+                    <h3 style="color: #bf360c; margin-bottom: 8px;">👨‍🏫 ${teacher}</h3>
+                    ${hoursList}
+                </div>`;
+            }).join('');
+        }
+
+        // Mass send state
+        let massSendTeachers = [];
+
+        // Build personalized message for a teacher based on matching absences
+        function buildPersonalMessage(teacher, freeHours) {
+            // Get unassigned absences that match this teacher's free hours
+            const unassigned = Object.entries(absencesData).filter(([id, a]) =>
+                a.day === currentDay && !a.substitute && !a.merged
+            );
+
+            const matchingSlots = [];
+            freeHours.forEach(hour => {
+                const match = unassigned.find(([id, a]) => {
+                    const absHour = a.hour || (a.hours ? a.hours[0] : null);
+                    return absHour === hour;
+                });
+                if (match) {
+                    const [id, a] = match;
+                    const cls = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, hour);
+                    matchingSlots.push({ hour, class: cls, absentTeacher: a.teacher });
+                }
+            });
+
+            if (matchingSlots.length === 0) {
+                return { msg: `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? נודה מאוד! תודה רבה!`, slots: [] };
+            }
+
+            const slotsText = matchingSlots.map(s =>
+                `שעה ${s.hour}${s.class ? ' בכיתה ' + s.class : ''}`
+            ).join(' ו');
+
+            return {
+                msg: `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]}) ב${slotsText}? נודה לך מאוד! תודה רבה!`,
+                slots: matchingSlots
+            };
+        }
+
+        function openMassSend() {
+            const { required, optional } = calculateAvailableTeachers();
+            const allAvailable = [...required, ...optional];
+
+            // Build personalized data for each teacher
+            massSendTeachers = [];
+            allAvailable.forEach(t => {
+                const contact = teacherContacts[t.name];
+                if (!contact) return;
+                const { msg, slots } = buildPersonalMessage(t.name, t.hours);
+                massSendTeachers.push({
+                    name: t.name,
+                    phone: contact.phone,
+                    method: contact.method,
+                    hours: t.hours,
+                    message: msg,
+                    slots
+                });
+            });
+
+            // Count by method
+            const waTeachers = massSendTeachers.filter(t => t.method === 'whatsapp');
+            const smsTeachers = massSendTeachers.filter(t => t.method === 'sms');
+            const callTeachers = massSendTeachers.filter(t => t.method === 'call');
+
+            // Summary
+            const groupsDiv = document.getElementById('mass-send-groups');
+            groupsDiv.innerHTML = `
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+                    <div style="flex:1; min-width:100px; padding:12px; background:#e8f5e9; border-radius:10px; text-align:center;">
+                        <div style="font-size:1.5rem;">💬</div>
+                        <div><strong>${waTeachers.length}</strong> ווטסאפ</div>
+                    </div>
+                    <div style="flex:1; min-width:100px; padding:12px; background:#e3f2fd; border-radius:10px; text-align:center;">
+                        <div style="font-size:1.5rem;">✉️</div>
+                        <div><strong>${smsTeachers.length}</strong> הודעות</div>
+                    </div>
+                    <div style="flex:1; min-width:100px; padding:12px; background:#fff3e0; border-radius:10px; text-align:center;">
+                        <div style="font-size:1.5rem;">📞</div>
+                        <div><strong>${callTeachers.length}</strong> שיחות</div>
+                    </div>
+                </div>
+            `;
+
+            // Message preview area - show personalized messages
+            const msgArea = document.getElementById('mass-send-message');
+            msgArea.value = massSendTeachers.map(t => `[${t.name}]: ${t.message}`).join('\n\n');
+
+            // Detailed teacher list with individual messages
+            const callsDiv = document.getElementById('mass-send-calls');
+            callsDiv.innerHTML = `
+                <h3 style="margin-bottom:10px;">📋 הודעות מותאמות אישית:</h3>
+                ${massSendTeachers.map((t, i) => {
+                    const methodIcon = t.method === 'whatsapp' ? '💬' : t.method === 'sms' ? '✉️' : '📞';
+                    const methodColor = t.method === 'whatsapp' ? '#e8f5e9' : t.method === 'sms' ? '#e3f2fd' : '#fff3e0';
+                    const slotsInfo = t.slots.length > 0
+                        ? t.slots.map(s => `שעה ${s.hour}${s.class ? ' כיתה ' + s.class : ''}`).join(', ')
+                        : 'כללי';
+                    return `
+                    <div style="padding:10px; background:${methodColor}; border-radius:10px; margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong>${methodIcon} ${t.name}</strong>
+                                <div style="font-size:0.8rem; color:#666;">${slotsInfo}</div>
+                            </div>
+                            <div class="contact-buttons">
+                                ${t.method === 'whatsapp' ? `<a href="https://wa.me/${phoneToInternational(t.phone)}?text=${encodeURIComponent(t.message)}" target="_blank" class="contact-btn contact-whatsapp" title="שלח ווטסאפ">💬</a>` : ''}
+                                ${t.method === 'sms' ? `<a href="sms:${t.phone}?body=${encodeURIComponent(t.message)}" class="contact-btn contact-sms" title="שלח הודעה">✉️</a>` : ''}
+                                <a href="tel:${t.phone}" class="contact-btn contact-call" title="התקשר">📞</a>
+                            </div>
+                        </div>
+                        <div style="font-size:0.8rem; color:#444; margin-top:6px; padding:6px; background:rgba(255,255,255,0.7); border-radius:6px;">${t.message}</div>
+                    </div>
+                `}).join('')}
+            `;
+
+            document.getElementById('mass-send-modal').style.display = 'block';
+        }
+
+        function closeMassSend() {
+            document.getElementById('mass-send-modal').style.display = 'none';
+        }
+
+        async function sendAllWhatsApp() {
+            const waTeachers = massSendTeachers.filter(t => t.method === 'whatsapp');
+            if (waTeachers.length === 0) { alert('אין מורים עם ווטסאפ'); return; }
+
+            if (!confirm(`לשלוח הודעת ווטסאפ מותאמת אישית ל-${waTeachers.length} מורים?`)) return;
+
+            const statusDiv = document.getElementById('mass-send-status');
+            if (!statusDiv) {
+                const s = document.createElement('div');
+                s.id = 'mass-send-status';
+                s.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:200px; overflow-y:auto;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(s);
+            }
+            const status = document.getElementById('mass-send-status');
+            status.innerHTML = '<strong>🔄 שולח...</strong><br>';
+
+            let success = 0;
+            let failed = 0;
+
+            for (const t of waTeachers) {
+                try {
+                    await sendWhatsAppDirect(t.phone, t.message);
+                    success++;
+                    status.innerHTML += `<span style="color:green;">✓ ${t.name} - נשלח!</span><br>`;
+                    // Small delay to avoid rate limiting
+                    await new Promise(r => setTimeout(r, 600));
+                } catch (err) {
+                    failed++;
+                    status.innerHTML += `<span style="color:red;">✗ ${t.name} - שגיאה: ${err.message}</span><br>`;
+                }
+            }
+
+            status.innerHTML += `<br><strong>סיכום: ${success} נשלחו ✓ ${failed > 0 ? ` | ${failed} נכשלו ✗` : ''}</strong>`;
+        }
+
+        async function sendAllSMS() {
+            const smsTeachers = massSendTeachers.filter(t => t.method === 'sms');
+            if (smsTeachers.length === 0) { alert('אין מורים עם הודעות SMS'); return; }
+
+            if (!TWILIO.fromNumber) {
+                alert('Twilio לא מוגדר עדיין - אין מספר טלפון. נפתח SMS בדפדפן במקום.');
+                smsTeachers.forEach((t, i) => {
+                    setTimeout(() => { window.open(`sms:${t.phone}?body=${encodeURIComponent(t.message)}`); }, i * 800);
+                });
+                return;
+            }
+
+            let status = document.getElementById('mass-send-status');
+            if (!status) {
+                status = document.createElement('div');
+                status.id = 'mass-send-status';
+                status.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:200px; overflow-y:auto;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(status);
+            }
+            status.innerHTML = '<strong>📱 שולח SMS...</strong><br>';
+
+            for (const t of smsTeachers) {
+                try {
+                    await sendTwilioSMS(t.phone, t.message);
+                    status.innerHTML += `<span style="color:green;">✓ ${t.name} - SMS נשלח!</span><br>`;
+                } catch(e) {
+                    status.innerHTML += `<span style="color:red;">✗ ${t.name} - ${e.message}</span><br>`;
+                }
+                await new Promise(r => setTimeout(r, 300));
+            }
+        }
+
+        async function sendAllCalls() {
+            const callTeachers = massSendTeachers.filter(t => t.method === 'call');
+            if (callTeachers.length === 0) { alert('אין מורים לשיחה'); return; }
+
+            if (!TWILIO.fromNumber) {
+                alert('Twilio לא מוגדר - לא ניתן לבצע שיחות אוטומטיות. אנא רכוש מספר Twilio.');
+                return;
+            }
+
+            let status = document.getElementById('mass-send-status');
+            if (!status) {
+                status = document.createElement('div');
+                status.id = 'mass-send-status';
+                status.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:200px; overflow-y:auto;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(status);
+            }
+            status.innerHTML += '<strong>📞 מתקשר...</strong><br>';
+
+            for (const t of callTeachers) {
+                try {
+                    await sendTwilioCall(t.phone, t.message);
+                    status.innerHTML += `<span style="color:green;">✓ ${t.name} - מתקשר!</span><br>`;
+                } catch(e) {
+                    status.innerHTML += `<span style="color:red;">✗ ${t.name} - ${e.message}</span><br>`;
+                }
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
+        // Update contact button when substitute is selected from dropdown
+        function updateContactBtn(id, teacher, hour, classAtHour) {
+            if (teacher === 'other') return;
+            const container = document.getElementById('contact-' + id);
+            if (!container) return;
+            if (!teacher) { container.innerHTML = ''; return; }
+            const msg = `שלום ${teacher}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`;
+            container.innerHTML = getContactButtonsHTML(teacher, msg);
+        }
+
+        // Assign substitute
+        function toggleSuggestion(el) {
+            const detail = el.closest('.absence-info').querySelector('.suggestion-detail');
+            if (detail) {
+                detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function assignSubstitute(id, substitute) {
+            if (substitute === 'other') {
+                substitute = prompt('הזן שם ממלא מקום:');
+                if (!substitute) return;
+            }
+
+            // Check if this is a new assignment (not just changing)
+            const previousSubstitute = absencesData[id]?.substitute;
+            const isNewAssignment = substitute && substitute !== previousSubstitute;
+
+            if (isOnline && database) {
+                database.ref('absences/' + id + '/substitute').set(substitute);
+            } else {
+                absencesData[id].substitute = substitute;
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                updateAllViews();
+            }
+
+            // Award points to the new substitute
+            if (isNewAssignment && substitute) {
+                awardPoints(substitute, 1);
+            }
+        }
+
+        // Delete absence
+        function deleteAbsence(id) {
+            if (!confirm('למחוק?')) return;
+
+            if (isOnline && database) {
+                database.ref('absences/' + id).remove();
+            } else {
+                delete absencesData[id];
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                updateAllViews();
+            }
+        }
+
+        // Dismiss reminders for today
+        function dismissReminders() {
+            if (!isOnline || !database) {
+                alert('אין חיבור לענן');
+                return;
+            }
+            database.ref('reminderDismissed/' + currentDay).set(true)
+                .then(() => {
+                    updateDismissUI(true);
+                });
+        }
+
+        function undismissReminders() {
+            if (!isOnline || !database) return;
+            database.ref('reminderDismissed/' + currentDay).remove()
+                .then(() => {
+                    updateDismissUI(false);
+                });
+        }
+
+        function updateDismissUI(dismissed) {
+            const statusEl = document.getElementById('dismiss-status');
+            const dismissBtn = document.getElementById('dismiss-btn');
+            const undismissBtn = document.getElementById('undismiss-btn');
+            if (dismissed) {
+                statusEl.innerHTML = '<span style="color: #2e7d32; font-weight: bold;">✅ התזכורות כבויות להיום</span>';
+                dismissBtn.style.display = 'none';
+                undismissBtn.style.display = '';
+            } else {
+                statusEl.innerHTML = '';
+                dismissBtn.style.display = '';
+                undismissBtn.style.display = 'none';
+            }
+        }
+
+        // Listen for dismiss state
+        if (database) {
+            database.ref('reminderDismissed/' + currentDay).on('value', (snapshot) => {
+                updateDismissUI(!!snapshot.val());
+            });
+        }
+
+        // Reset week
+        function resetWeek() {
+            if (!confirm('האם אתה בטוח? כל הנתונים יימחקו!')) return;
+            if (!confirm('בטוח בטוח? אין דרך חזרה!')) return;
+
+            if (isOnline && database) {
+                database.ref('absences').remove();
+                database.ref('tripClasses').remove();
+                database.ref('availableTeachers').remove();
+                database.ref('reminderDismissed').remove();
+                alert('נמחק הכל!');
+            } else {
+                localStorage.removeItem('absences');
+                localStorage.removeItem('tripClasses');
+                localStorage.removeItem('availableTeachers');
+                absencesData = {};
+                tripClassesData = {};
+                availableTeachersData = {};
+                alert('נמחק הכל!');
+            }
+            updateAllViews();
+        }
+
+        // Initial update
+        updateAllViews();
+
+        // Check every minute if we need to lock the page
+        setInterval(() => {
+            const now = new Date();
+            if (now.getHours() === LOCKOUT_HOUR && now.getMinutes() === LOCKOUT_MINUTE) {
+                updateLockedNotice();
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
