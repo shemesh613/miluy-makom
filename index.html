@@ -2889,7 +2889,16 @@
 
         // Update statistics
         function updateStats() {
-            const dayAbsences = Object.values(absencesData).filter(a => a.day === currentDay);
+            const trips = tripClassesData[currentDay] || [];
+            const tripClassNames = trips.map(t => typeof t === 'object' ? t.class : t);
+
+            const dayAbsences = Object.values(absencesData).filter(a => {
+                if (a.day !== currentDay) return false;
+                if (a.hour === 'בוקר' && tripClassNames.length > 0) return false;
+                const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
+                return true;
+            });
             const { required, optional } = calculateAvailableTeachers();
 
             document.getElementById('stat-absent').textContent = dayAbsences.length;
@@ -2900,7 +2909,18 @@
         // Update today's list
         function updateTodayList() {
             const container = document.getElementById('today-list');
-            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => a.day === currentDay);
+            const trips = tripClassesData[currentDay] || [];
+            const tripClassNames = trips.map(t => typeof t === 'object' ? t.class : t);
+
+            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => {
+                if (a.day !== currentDay) return false;
+                // Skip "בוקר" during trips
+                if (a.hour === 'בוקר' && tripClassNames.length > 0) return false;
+                // Skip if teacher's class at this hour is on a trip
+                const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
+                return true;
+            });
 
             if (dayAbsences.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="icon">🎉</div><p>אין היעדרויות!</p></div>';
@@ -3039,10 +3059,31 @@
             return filtered;
         }
 
+        // Check if a class matches a trip class (handles ה1/ה2 → ה)
+        function isClassOnTrip(classAtHour, tripClassNames) {
+            if (!classAtHour || !tripClassNames || tripClassNames.length === 0) return false;
+            // Direct match
+            if (tripClassNames.includes(classAtHour)) return true;
+            // Base letter match (ה1 → ה, ה2 → ה)
+            const baseClass = classAtHour.replace(/[12]/g, '');
+            return tripClassNames.includes(baseClass);
+        }
+
         // Update assignments list
         function updateAssignmentsList() {
             const container = document.getElementById('assignments-list');
-            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => a.day === currentDay);
+            const trips = tripClassesData[currentDay] || [];
+            const tripClassNames = trips.map(t => typeof t === 'object' ? t.class : t);
+
+            const dayAbsences = Object.entries(absencesData).filter(([id, a]) => {
+                if (a.day !== currentDay) return false;
+                // Skip "בוקר" during trips
+                if (a.hour === 'בוקר') return false;
+                // Skip if teacher's class at this hour is on a trip
+                const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
+                return true;
+            });
 
             if (dayAbsences.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>אין היעדרויות לשיבוץ</p></div>';
