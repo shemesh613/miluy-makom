@@ -2984,7 +2984,7 @@
                 reqContainer.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>אין כיתות בטיול</p></div>';
             } else {
                 reqContainer.innerHTML = required.map(t => {
-                    const contactMsg = `שלום ${t.name}, הכיתה שלך בטיול היום (יום ${dayNames[currentDay]}). האם תוכל בבקשה למלא מקום בשעות ${t.hours.join(', ')}? תודה רבה!`;
+                    const contactMsg = `שלום ${t.name}, הכיתה שלך בטיול היום (יום ${dayNames[currentDay]}). יש לך מילוי מקום בשעות ${t.hours.filter(h => h !== 'בוקר').join(', ')}. תודה רבה!`;
                     // Find unassigned absences where this teacher can substitute
                     const freeHours = t.hours.filter(h => h !== 'בוקר');
                     const matchingAbsences = Object.entries(absencesData).filter(([id, a]) =>
