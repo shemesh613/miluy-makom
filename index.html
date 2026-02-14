@@ -3077,8 +3077,8 @@
 
             const dayAbsences = Object.entries(absencesData).filter(([id, a]) => {
                 if (a.day !== currentDay) return false;
-                // Skip "בוקר" during trips
-                if (a.hour === 'בוקר') return false;
+                // Skip "בוקר" only for trip-related absences
+                if (a.hour === 'בוקר' && a.tripRelated) return false;
                 // Skip if teacher's class at this hour is on a trip
                 const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                 if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
