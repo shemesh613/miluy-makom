@@ -1629,22 +1629,41 @@
             return `tel:${contact.phone}`;
         }
 
+        // Send WhatsApp link to admin (שי) - admin clicks link to send to teacher
+        const ADMIN_PHONE = '0526953500';
+
+        async function sendWaLinkToAdmin(teacher, phone, message) {
+            const waLink = `https://wa.me/${phoneToInternational(phone)}?text=${encodeURIComponent(message)}`;
+            const adminMsg = `📤 *שלח ל${teacher}:*\n\n${waLink}`;
+            try {
+                await sendWhatsAppDirect(ADMIN_PHONE, adminMsg);
+                alert(`✅ נשלח לך קישור בווטסאפ לשליחה ל${teacher}`);
+            } catch (e) {
+                alert('❌ שגיאה: ' + e.message);
+            }
+        }
+
         // Get contact button HTML for a teacher
         function getContactButtonsHTML(teacher, message) {
             const contact = teacherContacts[teacher];
             if (!contact) return '';
             const msg = message || `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? תודה רבה!`;
 
+            const escapedTeacher = teacher.replace(/'/g, "\\'");
+            const escapedPhone = contact.phone;
+            const escapedMsg = msg.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+
             if (contact.method === 'whatsapp') {
-                const link = `https://wa.me/${phoneToInternational(contact.phone)}?text=${encodeURIComponent(msg)}`;
-                return `<a href="${link}" target="_blank" class="contact-btn contact-whatsapp" title="ווטסאפ">💬</a>
+                return `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
                         <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             } else if (contact.method === 'sms') {
                 const link = `sms:${contact.phone}?body=${encodeURIComponent(msg)}`;
                 return `<a href="${link}" class="contact-btn contact-sms" title="הודעה">✉️</a>
+                        <button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
                         <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             } else {
-                return `<a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
+                return `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
+                        <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             }
         }
 
