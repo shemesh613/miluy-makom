@@ -1126,6 +1126,18 @@
         // Teacher schedule - AUTO-GENERATED from schedule_0_0.csv
         // Day: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday
         const teacherSchedule = {
+            'הרב אופיר': {
+                days: [0,1,2,3,4,5],
+                dayHours: {
+                    0: [],
+                    1: [],
+                    2: [],
+                    3: [],
+                    4: [],
+                    5: []
+                },
+                dayClasses: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] }
+            },
             'הרב שלומי': {
                 days: [0,1,2,3,4,5],
                 dayHours: {
@@ -1211,7 +1223,7 @@
             'הרב ליאור': {
                 days: [0,1,2,4,5],
                 dayHours: {
-                    0: ['בוקר','4','5','6'],
+                    0: ['בוקר','5','6'],
                     1: ['בוקר','4'],
                     2: ['בוקר','5','6','7'],
                     4: ['בוקר','4','5','6'],
@@ -1370,16 +1382,17 @@
                 dayClasses: { 1: ['ג','ה','ז','ח'], 3: ['ו','ב','א','ד'] }
             },
             'הרב אורי': {
-                days: [0,1,2,3,5],
+                days: [0,1,2,3,4,5],
                 dayHours: {
                     0: ['4','5','7','8','9','10'],
                     1: ['5','6'],
                     2: ['8'],
                     3: ['4','5','6','7','8'],
+                    4: [],
                     5: ['5']
                 },
                 hakbatza: 'אנגלית',
-                dayClasses: { 0: ['ה','ו','ח','ז','ד'], 1: ['ה','ו'], 2: ['ח'], 3: ['ה','ד','ו','ז','ח'], 5: [] }
+                dayClasses: { 0: ['ה','ו','ח','ז','ד'], 1: ['ה','ו'], 2: ['ח'], 3: ['ה','ד','ו','ז','ח'], 4: [], 5: [] }
             },
             'המורה לאה': {
                 days: [0,1,2,4],
@@ -1474,6 +1487,7 @@
         // Teacher contact data: phone, preferred contact method
         // methods: 'whatsapp', 'sms', 'call'
         const teacherContacts = {
+            'הרב אופיר': { phone: '0548455189', method: 'whatsapp' },
             'הרב אבי': { phone: '0546640059', method: 'whatsapp' },
             'הרב אלי': { phone: '0539614048', method: 'sms' },
             'הרב אליהו שמשון': { phone: '0504131511', method: 'call' },
@@ -2589,6 +2603,9 @@
                     const schedule = teacherSchedule[teacher];
                     const todayHours = schedule?.dayHours?.[currentDay] || [];
                     todayHours.forEach(hour => {
+                        // Skip "בוקר" - no substitute needed during trips
+                        if (hour === 'בוקר') return;
+
                         // Get which class this teacher teaches at this hour
                         const classAtHour = getTeacherClassAtHour(teacher, currentDay, hour);
 
@@ -2929,11 +2946,25 @@
             } else {
                 reqContainer.innerHTML = required.map(t => {
                     const contactMsg = `שלום ${t.name}, הכיתה שלך בטיול היום (יום ${dayNames[currentDay]}). האם תוכל בבקשה למלא מקום בשעות ${t.hours.join(', ')}? תודה רבה!`;
+                    // Find unassigned absences where this teacher can substitute
+                    const freeHours = t.hours.filter(h => h !== 'בוקר');
+                    const matchingAbsences = Object.entries(absencesData).filter(([id, a]) =>
+                        a.day === currentDay && (!a.substitute || a.substitute === '') && !a.merged && freeHours.includes(a.hour)
+                    );
+                    const assignBtns = matchingAbsences.length > 0
+                        ? matchingAbsences.map(([id, a]) =>
+                            `<button class="btn btn-primary btn-sm" style="margin:2px;padding:6px 12px;font-size:0.85rem;" onclick="quickAssign('${id}','${t.name.replace(/'/g,"\\'")}')">🔄 שבץ לשעה ${a.hour} (${a.teacher})</button>`
+                        ).join('')
+                        : '<span style="color:#28a745;font-size:0.85rem;">✅ אין שעות פנויות לשיבוץ</span>';
+                    const autoAssignBtn = matchingAbsences.length > 1
+                        ? `<button class="btn btn-primary btn-sm" style="margin:2px;padding:6px 12px;font-size:0.85rem;background:#ff9800;" onclick="quickAssignAll('${t.name.replace(/'/g,"\\'")}')">⚡ שבץ לכל השעות</button>`
+                        : '';
                     return `
                     <div class="teacher-card required">
                         <div style="flex: 1;">
                             <div class="teacher-name">${t.name}</div>
-                            <div class="teacher-hours">${t.reason} ${t.hakbatza ? '(' + t.hakbatza + ')' : ''} | שעות: ${t.hours.join(', ')}</div>
+                            <div class="teacher-hours">${t.reason} ${t.hakbatza ? '(' + t.hakbatza + ')' : ''} | שעות: ${t.hours.filter(h => h !== 'בוקר').join(', ')}</div>
+                            <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${autoAssignBtn}${assignBtns}</div>
                         </div>
                         <div class="contact-buttons">${getContactButtonsHTML(t.name, contactMsg)}</div>
                         <span class="badge badge-required">חובה</span>
@@ -3387,6 +3418,36 @@
             // Award points to the new substitute
             if (isNewAssignment && substitute) {
                 awardPoints(substitute, 1);
+            }
+        }
+
+        // Quick assign a required teacher to a specific absence
+        function quickAssign(absenceId, teacherName) {
+            assignSubstitute(absenceId, teacherName);
+            updateAllViews();
+        }
+
+        // Quick assign a required teacher to ALL matching unassigned absences
+        function quickAssignAll(teacherName) {
+            const schedule = teacherSchedule[teacherName];
+            const freeHours = (schedule?.dayHours?.[currentDay] || []).filter(h => h !== 'בוקר');
+            // For teachers with no schedule (like הרב אופיר), they're free all hours
+            const allHours = ['1','2','3','4','5','6','7','8','9','10','סדר ערב'];
+            const availableHours = freeHours.length === 0 && schedule?.days?.includes(currentDay) ? allHours : allHours.filter(h => !freeHours.includes(h));
+
+            let count = 0;
+            Object.entries(absencesData).forEach(([id, a]) => {
+                if (a.day === currentDay && (!a.substitute || a.substitute === '') && !a.merged) {
+                    // Check if teacher is free at this hour
+                    const teachingHours = schedule?.dayHours?.[currentDay] || [];
+                    if (!teachingHours.includes(a.hour)) {
+                        assignSubstitute(id, teacherName);
+                        count++;
+                    }
+                }
+            });
+            if (count > 0) {
+                updateAllViews();
             }
         }
 
