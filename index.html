@@ -1524,37 +1524,16 @@
         };
 
         // Google Apps Script web app URL for email confirmations
-        const APPS_SCRIPT_URL = 'REPLACE_WITH_DEPLOYED_URL';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhlqBOSFJDSYjFSU4g2ac63bpQNv3QhlMyzSSFxGz1Nm999R98ILdUyuz4Vz1vDbw/exec';
 
         // Send absence confirmation email via Apps Script
         function sendConfirmationEmail(teacher, day, hours, reason, email) {
             if (APPS_SCRIPT_URL === 'REPLACE_WITH_DEPLOYED_URL') return;
-            try {
-                const iframe = document.createElement('iframe');
-                iframe.name = 'email_frame_' + Date.now();
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = APPS_SCRIPT_URL;
-                form.target = iframe.name;
-
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'data';
-                input.value = JSON.stringify({
-                    action: 'confirmAbsence',
-                    teacher, day, hours, reason, email
-                });
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
-
-                setTimeout(() => {
-                    try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
-                }, 5000);
-            } catch (e) { console.error('Email send error:', e); }
+            fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'confirmAbsence', teacher, day, hours, reason, email })
+            }).catch(e => console.error('Email send error:', e));
         }
 
         // Green API config for direct WhatsApp sending
