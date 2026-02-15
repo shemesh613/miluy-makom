@@ -1744,6 +1744,7 @@
                     console.log("Firebase connected!");
                     isOnline = true;
                     updateConnectionStatus(true);
+                    syncPendingAbsences();
                     loadAllData();
                 })
                 .catch((error) => {
@@ -1755,6 +1756,29 @@
         } else {
             updateConnectionStatus(false);
             loadFromLocalStorage();
+        }
+
+        // Sync pending offline absences to Firebase
+        function syncPendingAbsences() {
+            try {
+                const stored = localStorage.getItem('absences');
+                if (!stored) return;
+                const local = JSON.parse(stored);
+                const pending = Object.entries(local).filter(([k, v]) => v.pendingSync);
+                if (pending.length === 0) return;
+                console.log(`Syncing ${pending.length} pending absences...`);
+                const promises = pending.map(([key, data]) => {
+                    const clean = { ...data };
+                    delete clean.pendingSync;
+                    return database.ref('absences/' + key).set(clean);
+                });
+                Promise.all(promises).then(() => {
+                    // Remove pendingSync flags
+                    pending.forEach(([key]) => { if (local[key]) delete local[key].pendingSync; });
+                    localStorage.setItem('absences', JSON.stringify(local));
+                    console.log('Sync complete!');
+                }).catch(err => console.error('Sync failed:', err));
+            } catch (e) { console.error('syncPendingAbsences error:', e); }
         }
 
         // Populate teacher select
@@ -2271,10 +2295,30 @@
             });
 
             if (isOnline && database) {
-                Promise.all(promises).then(() => { alert('נשמר!'); clearForm(); });
+                Promise.all(promises).then(() => {
+                    alert('✅ נשמר בהצלחה!');
+                    clearForm();
+                }).catch(err => {
+                    console.error('Firebase save error:', err);
+                    alert('❌ שגיאה בשמירה! הנתונים נשמרו מקומית ויסונכרנו כשהחיבור יחזור.');
+                    // Save locally as backup
+                    hours.forEach((hour, index) => {
+                        const key = `${currentDay}_${timestamp}_${index}`;
+                        absencesData[key] = { teacher, day: currentDay, hour, reason, reportedToMoshe, substitute: '', suggestion: suggestions[hour] || '', createdAt: timestamp + index, pendingSync: true };
+                    });
+                    localStorage.setItem('absences', JSON.stringify(absencesData));
+                    clearForm();
+                    updateAllViews();
+                });
             } else {
                 localStorage.setItem('absences', JSON.stringify(absencesData));
-                alert('נשמר!');
+                // Mark for sync when back online
+                hours.forEach((hour, index) => {
+                    const key = `${currentDay}_${timestamp}_${index}`;
+                    if (absencesData[key]) absencesData[key].pendingSync = true;
+                });
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                alert('⚠️ אין חיבור! הנתונים נשמרו מקומית ויסונכרנו כשהחיבור יחזור.');
                 clearForm();
                 updateAllViews();
             }
@@ -2800,13 +2844,35 @@
                     : (schedule.hours || []);
 
                 if (classesOnTrip.length > 0) {
-                    const classNames = classesOnTrip.join(', ');
-                    required.push({
-                        name: teacher,
-                        hours: todayTeachingHours,
-                        reason: `כיתה ${classNames} בטיול`,
-                        hakbatza: schedule.hakbatza
-                    });
+                    // Only include hours where the teacher actually teaches a trip class
+                    const teacherClassMap = dayHourClassesData[teacher] ? (dayHourClassesData[teacher][currentDay] || {}) : {};
+                    const tripHours = Object.entries(teacherClassMap)
+                        .filter(([hour, cls]) => isClassOnTrip(cls, tripClassNames))
+                        .map(([hour]) => hour);
+
+                    if (tripHours.length > 0) {
+                        const classNames = classesOnTrip.join(', ');
+                        required.push({
+                            name: teacher,
+                            hours: tripHours,
+                            reason: `כיתה ${classNames} בטיול`,
+                            hakbatza: schedule.hakbatza
+                        });
+                    }
+
+                    // Non-trip hours: teacher still teaches, so check for free hours
+                    const allHours = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+                    const nonTripTeachingHours = todayTeachingHours.filter(h => !tripHours.includes(h));
+                    const freeHours = allHours.filter(h => !nonTripTeachingHours.includes(h) && !tripHours.includes(h));
+                    if (freeHours.length > 0) {
+                        optional.push({
+                            name: teacher,
+                            hours: freeHours,
+                            teachingHours: nonTripTeachingHours,
+                            reason: 'פנוי בשעות מסוימות',
+                            priority: 2
+                        });
+                    }
                 } else if (schedule.permanent) {
                     // Permanent substitute (הרב צביקה)
                     // Calculate free hours for permanent substitute too
@@ -2913,7 +2979,7 @@
 
             const dayAbsences = Object.values(absencesData).filter(a => {
                 if (a.day !== currentDay) return false;
-                if (a.hour === 'בוקר' && tripClassNames.length > 0) return false;
+                if (a.hour === 'בוקר' && a.tripRelated) return false;
                 const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                 if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
                 return true;
