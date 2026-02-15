@@ -808,6 +808,12 @@
                     <p style="color: #999; font-size: 0.8rem; margin-top: 4px;">✍️ כתוב מה המחליף צריך ללמד - זה יופיע למשבץ</p>
                 </div>
 
+                <div class="form-group">
+                    <label>📧 מייל לאישור (אופציונלי)</label>
+                    <input type="email" id="teacher-email" placeholder="your@email.com" style="width:100%; padding:12px; border:1px solid #e0e0e0; border-radius:12px; font-size:1rem;">
+                    <p style="color: #999; font-size: 0.8rem; margin-top: 4px;">אישור הדיווח ישלח למייל שלך ולמנהל</p>
+                </div>
+
                 <div class="checkbox-group">
                     <input type="checkbox" id="reported-to-moshe">
                     <label for="reported-to-moshe">⚠️ דיווחתי לרב משה (חובה!)</label>
@@ -1516,6 +1522,40 @@
             'המורה שרה אליה': { phone: '0504100954', method: 'call' },
             'המורה שרה תורג\'מן': { phone: '0548463377', method: 'call' },
         };
+
+        // Google Apps Script web app URL for email confirmations
+        const APPS_SCRIPT_URL = 'REPLACE_WITH_DEPLOYED_URL';
+
+        // Send absence confirmation email via Apps Script
+        function sendConfirmationEmail(teacher, day, hours, reason, email) {
+            if (APPS_SCRIPT_URL === 'REPLACE_WITH_DEPLOYED_URL') return;
+            try {
+                const iframe = document.createElement('iframe');
+                iframe.name = 'email_frame_' + Date.now();
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = APPS_SCRIPT_URL;
+                form.target = iframe.name;
+
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'data';
+                input.value = JSON.stringify({
+                    action: 'confirmAbsence',
+                    teacher, day, hours, reason, email
+                });
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+
+                setTimeout(() => {
+                    try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
+                }, 5000);
+            } catch (e) { console.error('Email send error:', e); }
+        }
 
         // Green API config for direct WhatsApp sending
         const GREEN_API = {
@@ -2245,6 +2285,7 @@
             const teacher = teacherSelect.value === 'other' ? teacherManual.value : teacherSelect.value;
             const hours = getSelectedHours();
             const reason = document.getElementById('absence-reason').value;
+            const teacherEmail = document.getElementById('teacher-email').value.trim();
             const reportedToMoshe = document.getElementById('reported-to-moshe').checked;
 
             if (!teacher) { alert('נא לבחור מורה'); return; }
@@ -2297,6 +2338,7 @@
             if (isOnline && database) {
                 Promise.all(promises).then(() => {
                     alert('✅ נשמר בהצלחה!');
+                    if (teacherEmail) sendConfirmationEmail(teacher, currentDay, hoursText, reason, teacherEmail);
                     clearForm();
                 }).catch(err => {
                     console.error('Firebase save error:', err);
@@ -2370,6 +2412,7 @@
             document.getElementById('teacher-manual').value = '';
             document.getElementById('teacher-manual').style.display = 'none';
             document.getElementById('absence-reason').value = '';
+            document.getElementById('teacher-email').value = '';
             document.getElementById('reported-to-moshe').checked = false;
             document.getElementById('save-btn').disabled = true;
             document.getElementById('report-warning').style.display = 'block';
