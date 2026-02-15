@@ -1523,17 +1523,16 @@
             'המורה שרה תורג\'מן': { phone: '0548463377', method: 'call' },
         };
 
-        // Google Apps Script web app URL for email confirmations
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0Zs2esYY5S2ONI2mKJf40-JObXKaMvgWcoJv64FAywArV3irnVRQpyOLcHZ3V6uc/exec';
-
-        // Send absence confirmation email via Apps Script
+        // Send absence confirmation email via Firebase queue (Apps Script picks it up)
         function sendConfirmationEmail(teacher, day, hours, reason, email) {
-            if (APPS_SCRIPT_URL === 'REPLACE_WITH_DEPLOYED_URL') return;
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'confirmAbsence', teacher, day, hours, reason, email })
-            }).catch(e => console.error('Email send error:', e));
+            if (!isOnline || !database) return;
+            const key = 'email_' + Date.now();
+            database.ref('pendingEmails/' + key).set({
+                teacher, day, hours, reason, email,
+                createdAt: Date.now()
+            }).then(() => {
+                console.log('Email request queued:', key);
+            }).catch(e => console.error('Email queue error:', e));
         }
 
         // Green API config for direct WhatsApp sending
