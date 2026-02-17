@@ -163,37 +163,42 @@ async function checkAndSendDailySummary() {
     if (utcHour !== 19 || utcMin < 25 || utcMin > 35) return;
 
     // Check if already sent today
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10);
     const sentFlag = await firebaseGet('/summaryFlags/' + today);
     if (sentFlag) {
         console.log('Daily summary already sent today');
         return;
     }
 
-    // Skip Friday (tomorrow is Shabbat)
-    const israelDay = (now.getUTCDay() + (utcHour >= 21 ? 1 : 0)) % 7;
+    // Israel time: UTC+2 (winter) / UTC+3 (summer)
+    const israelHour = (utcHour + 2) % 24;
+    const israelDay = now.getUTCDay();
     const tomorrow = (israelDay + 1) % 7;
-    if (tomorrow === 6) {
+
+    // At 22:30 → send TOMORROW's info
+    const targetDay = tomorrow;
+    const label = 'למחר';
+
+    if (targetDay === 6) {
         console.log('Tomorrow is Shabbat, skipping summary');
         return;
     }
-    // Skip Shabbat (Saturday)
     if (israelDay === 6) return;
 
-    console.log(`Sending daily summary for tomorrow (day ${tomorrow})...`);
+    console.log(`Sending daily summary ${label} (day ${targetDay})...`);
 
     if (!GREEN_API_TOKEN) {
         console.log('No GREEN_API_TOKEN, skipping WhatsApp');
     }
 
     const absences = await firebaseGet('/absences');
-    const dayName = DAY_NAMES[tomorrow];
+    const dayName = DAY_NAMES[targetDay];
 
     const assigned = [], unassigned = [], merged = [];
     if (absences) {
         for (const key in absences) {
             const a = absences[key];
-            if (a.day !== tomorrow) continue;
+            if (a.day !== targetDay) continue;
             if (a.merged) merged.push({ teacher: a.teacher, hour: a.hour });
             else if (a.substitute && a.substitute !== '') assigned.push({ teacher: a.teacher, hour: a.hour, substitute: a.substitute });
             else unassigned.push({ teacher: a.teacher, hour: a.hour });
@@ -204,9 +209,9 @@ async function checkAndSendDailySummary() {
     let message;
 
     if (total === 0) {
-        message = `📊 סיכום למחר - יום ${dayName}\n\n✅ אין היעדרויות למחר!`;
+        message = `📊 סיכום ${label} - יום ${dayName}\n\n✅ אין היעדרויות ${label}!`;
     } else {
-        message = `📊 סיכום למחר - יום ${dayName}\n`;
+        message = `📊 סיכום ${label} - יום ${dayName}\n`;
         message += '━━━━━━━━━━━━━━━\n\n';
         message += `📌 סה"כ היעדרויות: ${total}\n`;
         message += `✅ שובצו: ${assigned.length}\n`;
@@ -238,7 +243,7 @@ async function checkAndSendDailySummary() {
     const emailKey = 'summary_' + Date.now();
     await firebasePut(`/pendingEmails/${emailKey}`, {
         email: ADMIN_EMAIL,
-        subject: `📊 סיכום מילוי מקום למחר - יום ${dayName}`,
+        subject: `📊 סיכום מילוי מקום ${label} - יום ${dayName}`,
         reason: message,
         createdAt: Date.now()
     });
