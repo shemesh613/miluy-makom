@@ -111,19 +111,158 @@ async function processPendingEmails() {
     }
 }
 
-// Run
+// ============ Daily WhatsApp Summary (runs from GitHub Actions) ============
+
+const GREEN_API_URL = 'https://7103.api.greenapi.com';
+const GREEN_API_INSTANCE = '7103493878';
+const GREEN_API_TOKEN = process.env.GREEN_API_TOKEN || '';
+const ADMIN_PHONE = '972526953500';
+
+function sendWhatsApp(phone, message) {
+    return new Promise((resolve, reject) => {
+        const url = `${GREEN_API_URL}/waInstance${GREEN_API_INSTANCE}/sendMessage/${GREEN_API_TOKEN}`;
+        const postData = JSON.stringify({ chatId: `${phone}@c.us`, message });
+        const urlObj = new URL(url);
+        const req = https.request(urlObj, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData, 'utf8') }
+        }, res => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => resolve(data));
+        });
+        req.on('error', reject);
+        req.write(postData, 'utf8');
+        req.end();
+    });
+}
+
+function firebasePut(path, data) {
+    return new Promise((resolve, reject) => {
+        const putData = JSON.stringify(data);
+        const url = new URL(`${path}.json`, FIREBASE_URL);
+        const req = https.request(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(putData, 'utf8') }
+        }, res => {
+            let d = '';
+            res.on('data', chunk => d += chunk);
+            res.on('end', () => resolve(d));
+        });
+        req.on('error', reject);
+        req.write(putData, 'utf8');
+        req.end();
+    });
+}
+
+async function checkAndSendDailySummary() {
+    // Only run around 19:25-19:35 UTC (22:25-22:35 Israel time)
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcMin = now.getUTCMinutes();
+    if (utcHour !== 19 || utcMin < 25 || utcMin > 35) return;
+
+    // Check if already sent today
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const sentFlag = await firebaseGet('/summaryFlags/' + today);
+    if (sentFlag) {
+        console.log('Daily summary already sent today');
+        return;
+    }
+
+    // Skip Friday (tomorrow is Shabbat)
+    const israelDay = (now.getUTCDay() + (utcHour >= 21 ? 1 : 0)) % 7;
+    const tomorrow = (israelDay + 1) % 7;
+    if (tomorrow === 6) {
+        console.log('Tomorrow is Shabbat, skipping summary');
+        return;
+    }
+    // Skip Shabbat (Saturday)
+    if (israelDay === 6) return;
+
+    console.log(`Sending daily summary for tomorrow (day ${tomorrow})...`);
+
+    if (!GREEN_API_TOKEN) {
+        console.log('No GREEN_API_TOKEN, skipping WhatsApp');
+    }
+
+    const absences = await firebaseGet('/absences');
+    const dayName = DAY_NAMES[tomorrow];
+
+    const assigned = [], unassigned = [], merged = [];
+    if (absences) {
+        for (const key in absences) {
+            const a = absences[key];
+            if (a.day !== tomorrow) continue;
+            if (a.merged) merged.push({ teacher: a.teacher, hour: a.hour });
+            else if (a.substitute && a.substitute !== '') assigned.push({ teacher: a.teacher, hour: a.hour, substitute: a.substitute });
+            else unassigned.push({ teacher: a.teacher, hour: a.hour });
+        }
+    }
+
+    const total = assigned.length + unassigned.length + merged.length;
+    let message;
+
+    if (total === 0) {
+        message = `📊 סיכום למחר - יום ${dayName}\n\n✅ אין היעדרויות למחר!`;
+    } else {
+        message = `📊 סיכום למחר - יום ${dayName}\n`;
+        message += '━━━━━━━━━━━━━━━\n\n';
+        message += `📌 סה"כ היעדרויות: ${total}\n`;
+        message += `✅ שובצו: ${assigned.length}\n`;
+        message += `❌ לא שובצו: ${unassigned.length}\n`;
+        message += `🔗 אוחדו: ${merged.length}\n\n`;
+        if (assigned.length > 0) {
+            message += '✅ *שובצו:*\n';
+            assigned.forEach(i => { message += `  ${i.teacher} שעה ${i.hour} ← ${i.substitute}\n`; });
+            message += '\n';
+        }
+        if (unassigned.length > 0) {
+            message += '❌ *לא שובצו:*\n';
+            unassigned.forEach(i => { message += `  ${i.teacher} שעה ${i.hour}\n`; });
+            message += '\n';
+        }
+        if (merged.length > 0) {
+            message += '🔗 *אוחדו:*\n';
+            merged.forEach(i => { message += `  ${i.teacher} שעה ${i.hour}\n`; });
+        }
+    }
+
+    // Send WhatsApp
+    if (GREEN_API_TOKEN) {
+        await sendWhatsApp(ADMIN_PHONE, message);
+        console.log('WhatsApp summary sent');
+    }
+
+    // Queue email summary
+    const emailKey = 'summary_' + Date.now();
+    await firebasePut(`/pendingEmails/${emailKey}`, {
+        email: ADMIN_EMAIL,
+        subject: `📊 סיכום מילוי מקום למחר - יום ${dayName}`,
+        reason: message,
+        createdAt: Date.now()
+    });
+    console.log('Email summary queued');
+
+    // Mark as sent today
+    await firebasePut(`/summaryFlags/${today}`, { sent: true, time: now.toISOString() });
+    console.log('Daily summary completed');
+}
+
+// ============ Main ============
+
 if (GMAIL_APP_PASSWORD === 'REPLACE_WITH_APP_PASSWORD') {
     console.error('❌ Set GMAIL_APP_PASSWORD first!');
-    console.log('1. Go to: https://myaccount.google.com/apppasswords');
-    console.log('2. Create app password for "Mail"');
-    console.log('3. Replace REPLACE_WITH_APP_PASSWORD in this file');
     process.exit(1);
 }
 
-processPendingEmails().then(() => {
+async function main() {
+    await processPendingEmails();
+    await checkAndSendDailySummary();
     console.log('Done.');
-    process.exit(0);
-}).catch(err => {
+}
+
+main().then(() => process.exit(0)).catch(err => {
     console.error('Fatal error:', err);
     process.exit(1);
 });
