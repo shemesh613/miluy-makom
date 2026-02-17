@@ -156,26 +156,28 @@ function firebasePut(path, data) {
 }
 
 async function checkAndSendDailySummary() {
-    // Only run around 19:25-19:35 UTC (22:25-22:35 Israel time)
     const now = new Date();
     const utcHour = now.getUTCHours();
-    const utcMin = now.getUTCMinutes();
-    if (utcHour !== 19 || utcMin < 25 || utcMin > 35) return;
 
-    // Check if already sent today
-    const today = new Date().toISOString().slice(0, 10);
+    // Israel time: UTC+2 (winter) / UTC+3 (summer)
+    const israelHour = (utcHour + 2) % 24;
+
+    // Only send after 22:00 Israel time (20:00 UTC)
+    if (israelHour < 22) return;
+
+    // Check if already sent today (using Israel date)
+    const israelDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const today = israelDate.toISOString().slice(0, 10);
     const sentFlag = await firebaseGet('/summaryFlags/' + today);
     if (sentFlag) {
         console.log('Daily summary already sent today');
         return;
     }
 
-    // Israel time: UTC+2 (winter) / UTC+3 (summer)
-    const israelHour = (utcHour + 2) % 24;
-    const israelDay = now.getUTCDay();
+    const israelDay = israelDate.getUTCDay();
     const tomorrow = (israelDay + 1) % 7;
 
-    // At 22:30 → send TOMORROW's info
+    // At 22:00+ → send TOMORROW's info
     const targetDay = tomorrow;
     const label = 'למחר';
 
