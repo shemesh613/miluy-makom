@@ -69,26 +69,37 @@ async function processPendingEmails() {
     for (const key of keys) {
         const data = pending[key];
         try {
-            const dayName = DAY_NAMES[data.day] || '?';
-            const body = `מורה: ${data.teacher}\nיום: ${dayName}\nשעות: ${data.hours}\nסיבה: ${data.reason || 'לא צוינה'}\nתאריך: ${new Date().toLocaleDateString('he-IL')}\n---\nמערכת מילוי מקום`;
-
-            // Send to teacher
-            if (data.email) {
+            // Check if this is a daily summary email (has subject field)
+            if (data.subject) {
                 await sendEmail(
-                    data.email,
-                    `אישור דיווח היעדרות - ${data.teacher} - יום ${dayName}`,
-                    `שלום ${data.teacher},\n\nהיעדרותך נקלטה במערכת:\n\n${body}`
+                    data.email || ADMIN_EMAIL,
+                    data.subject,
+                    `${data.reason}\n---\nמערכת מילוי מקום`
                 );
-                console.log(`✅ Sent to teacher: ${data.email}`);
-            }
+                console.log(`✅ Sent summary to: ${data.email || ADMIN_EMAIL}`);
+            } else {
+                // Regular absence email
+                const dayName = DAY_NAMES[data.day] || '?';
+                const body = `מורה: ${data.teacher}\nיום: ${dayName}\nשעות: ${data.hours}\nסיבה: ${data.reason || 'לא צוינה'}\nתאריך: ${new Date().toLocaleDateString('he-IL')}\n---\nמערכת מילוי מקום`;
 
-            // Send to admin (fixed subject for threading)
-            await sendEmail(
-                ADMIN_EMAIL,
-                'דיווחי היעדרות - מערכת מילוי מקום',
-                `📋 דיווח חדש:\n\n${body}`
-            );
-            console.log(`✅ Sent to admin: ${ADMIN_EMAIL}`);
+                // Send to teacher
+                if (data.email) {
+                    await sendEmail(
+                        data.email,
+                        `אישור דיווח היעדרות - ${data.teacher} - יום ${dayName}`,
+                        `שלום ${data.teacher},\n\nהיעדרותך נקלטה במערכת:\n\n${body}`
+                    );
+                    console.log(`✅ Sent to teacher: ${data.email}`);
+                }
+
+                // Send to admin (fixed subject for threading)
+                await sendEmail(
+                    ADMIN_EMAIL,
+                    'דיווחי היעדרות - מערכת מילוי מקום',
+                    `📋 דיווח חדש:\n\n${body}`
+                );
+                console.log(`✅ Sent to admin: ${ADMIN_EMAIL}`);
+            }
 
             // Delete processed
             await firebaseDelete(`/pendingEmails/${key}`);
