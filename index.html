@@ -3659,11 +3659,18 @@
             if (!confirm('בטוח בטוח? אין דרך חזרה!')) return;
 
             if (isOnline && database) {
-                database.ref('absences').remove();
-                database.ref('tripClasses').remove();
-                database.ref('availableTeachers').remove();
-                database.ref('reminderDismissed').remove();
-                alert('נמחק הכל!');
+                database.ref('absences').remove().then(function() {
+                    return database.ref('tripClasses').remove();
+                }).then(function() {
+                    return database.ref('availableTeachers').remove();
+                }).then(function() {
+                    return database.ref('reminderDismissed').remove();
+                }).then(function() {
+                    return restorePermanentAbsences();
+                }).then(function() {
+                    alert('נמחק הכל! (היעדרויות קבועות שוחזרו)');
+                    updateAllViews();
+                });
             } else {
                 localStorage.removeItem('absences');
                 localStorage.removeItem('tripClasses');
@@ -3672,12 +3679,41 @@
                 tripClassesData = {};
                 availableTeachersData = {};
                 alert('נמחק הכל!');
+                updateAllViews();
             }
-            updateAllViews();
         }
 
-        // Initial update
-        updateAllViews();
+        // Restore permanent/pinned absences from /permanentAbsences/
+        function restorePermanentAbsences() {
+            if (!isOnline || !database) return Promise.resolve();
+            return database.ref('permanentAbsences').once('value').then(function(snap) {
+                var perms = snap.val();
+                if (!perms) return;
+                var promises = [];
+                for (var key in perms) {
+                    var p = perms[key];
+                    var absKey = 'perm_' + p.teacher.replace(/\s/g, '_') + '_' + p.day + '_' + p.hour;
+                    promises.push(database.ref('absences/' + absKey).set({
+                        teacher: p.teacher,
+                        day: p.day,
+                        hour: p.hour,
+                        reason: p.reason || 'היעדרות קבועה',
+                        permanent: true,
+                        reportedToMoshe: true,
+                        substitute: '',
+                        createdAt: Date.now()
+                    }));
+                }
+                return Promise.all(promises);
+            });
+        }
+
+        // Ensure permanent absences exist, then update views
+        restorePermanentAbsences().then(function() {
+            updateAllViews();
+        }).catch(function() {
+            updateAllViews();
+        });
 
         // Check every minute if we need to lock the page
         setInterval(() => {
