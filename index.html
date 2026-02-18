@@ -3020,6 +3020,8 @@
 
             const dayAbsences = Object.entries(absencesData).filter(([id, a]) => {
                 if (a.day !== currentDay) return false;
+                // Permanent absences always show
+                if (a.permanent) return true;
                 // Skip "בוקר" only for trip-related absences
                 if (a.hour === 'בוקר' && a.tripRelated) return false;
                 // Skip if teacher's class at this hour is on a trip
@@ -3049,7 +3051,7 @@
                 return `
                 <div class="absence-item" style="border-right-color: ${statusColor}">
                     <div class="absence-info">
-                        <div class="name">${a.teacher}</div>
+                        <div class="name">${a.teacher}${a.permanent ? ' <span style="background:#ff9800;color:white;padding:1px 6px;border-radius:8px;font-size:0.7rem;">📌 קבוע</span>' : ''}</div>
                         <div class="details">
                             שעה: ${hourDisplay}${classDisplay}
                             ${a.reason ? ' | ' + a.reason : ''}
@@ -3183,6 +3185,8 @@
 
             const dayAbsences = Object.entries(absencesData).filter(([id, a]) => {
                 if (a.day !== currentDay) return false;
+                // Permanent absences always show
+                if (a.permanent) return true;
                 // Skip "בוקר" only for trip-related absences
                 if (a.hour === 'בוקר' && a.tripRelated) return false;
                 // Skip if teacher's class at this hour is on a trip
@@ -3600,6 +3604,11 @@
 
         // Delete absence
         function deleteAbsence(id) {
+            // Block deletion of permanent absences
+            if (absencesData[id] && absencesData[id].permanent) {
+                alert('היעדרות קבועה - לא ניתן למחוק!');
+                return;
+            }
             if (!confirm('למחוק?')) return;
 
             if (isOnline && database) {
