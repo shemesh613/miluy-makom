@@ -256,6 +256,75 @@ async function checkAndSendDailySummary() {
     console.log('Daily summary completed');
 }
 
+// ============ Weekly Cleanup (Friday noon Israel time) ============
+
+async function checkAndRunWeeklyCleanup() {
+    const now = new Date();
+    const israelDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const israelDay = israelDate.getUTCDay(); // 5 = Friday
+    const israelHour = israelDate.getUTCHours();
+
+    // Only run on Friday between 12:00-14:00 Israel time
+    if (israelDay !== 5 || israelHour < 12 || israelHour > 14) return;
+
+    // Check if already cleaned this week
+    const weekKey = israelDate.toISOString().slice(0, 10);
+    const cleanupFlag = await firebaseGet('/cleanupFlags/' + weekKey);
+    if (cleanupFlag) {
+        console.log('Weekly cleanup already done this week');
+        return;
+    }
+
+    console.log('Running weekly cleanup...');
+
+    // Archive current data
+    const absences = await firebaseGet('/absences');
+    const tripClasses = await firebaseGet('/tripClasses');
+    if (absences) await firebasePut(`/archived/${weekKey}/absences`, absences);
+    if (tripClasses) await firebasePut(`/archived/${weekKey}/tripClasses`, tripClasses);
+    console.log('Archived data');
+
+    // Delete current data
+    await firebaseDelete('/absences');
+    await firebaseDelete('/tripClasses');
+    await firebaseDelete('/reminderDismissed');
+    await firebaseDelete('/summaryFlags');
+    console.log('Deleted old data');
+
+    // Restore permanent absences
+    const perms = await firebaseGet('/permanentAbsences');
+    if (perms) {
+        for (const key in perms) {
+            const p = perms[key];
+            const absKey = 'perm_' + p.teacher.replace(/\s/g, '_') + '_' + p.day + '_' + p.hour;
+            await firebasePut(`/absences/${absKey}`, {
+                teacher: p.teacher, day: p.day, hour: p.hour,
+                reason: p.reason || 'היעדרות קבועה',
+                permanent: true, reportedToMoshe: true,
+                substitute: '', createdAt: Date.now()
+            });
+            console.log(`Restored permanent: ${p.teacher}`);
+        }
+    }
+
+    // Mark cleanup as done
+    await firebasePut(`/cleanupFlags/${weekKey}`, { done: true, time: now.toISOString() });
+    console.log('Weekly cleanup completed!');
+}
+
+function firebaseDelete(path) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(`${path}.json`, FIREBASE_URL);
+        const req = https.request(url, { method: 'DELETE' }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => resolve(data));
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
 // ============ Main ============
 
 if (GMAIL_APP_PASSWORD === 'REPLACE_WITH_APP_PASSWORD') {
@@ -266,6 +335,7 @@ if (GMAIL_APP_PASSWORD === 'REPLACE_WITH_APP_PASSWORD') {
 async function main() {
     await processPendingEmails();
     await checkAndSendDailySummary();
+    await checkAndRunWeeklyCleanup();
     console.log('Done.');
 }
 
