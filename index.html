@@ -2461,13 +2461,12 @@
 
                 const parallelClass = getTeacherParallelClass(a.teacher, currentDay);
                 if (parallelClass) {
-                    // Find covering teacher
+                    // Find covering teacher from parallel sub-class
                     const subClasses = parallelClasses[parallelClass];
                     const coveringTeacher = subClasses
                         ? subClasses.map(sc => classMechanech[sc]).find(t => t !== a.teacher)
                         : null;
 
-                    // Only suggest merge if covering teacher actually teaches at this hour
                     if (coveringTeacher) {
                         const coveringSchedule = teacherSchedule[coveringTeacher];
                         const coveringHours = (coveringSchedule?.dayHours?.[currentDay] || []).map(String);
@@ -2481,7 +2480,10 @@
                             });
                         }
                     }
-                } else {
+                }
+
+                // Always also check adjacent classes (even if parallel was found)
+                {
                     // Find class from dayHourClassesData or classMechanech
                     let absentClass = null;
                     const hourClassMap = dayHourClassesData[a.teacher]?.[currentDay] || {};
