@@ -2482,46 +2482,65 @@
                         }
                     }
                 } else {
-                    // Non-parallel class - suggest merging with adjacent class
-                    const absentSubClass = Object.entries(classMechanech).find(([cls, t]) => t === a.teacher)?.[0];
-                    if (absentSubClass && !classesWithParallel.includes(absentSubClass.charAt(0))) {
-                        const classIdx = classNames.indexOf(absentSubClass.charAt(0));
-                        const adjacentOptions = [];
-                        if (classIdx > 0) adjacentOptions.push(classNames[classIdx - 1]);
-                        if (classIdx < classNames.length - 1) adjacentOptions.push(classNames[classIdx + 1]);
-
-                        adjacentOptions.forEach(adjClass => {
-                            // For adjacent classes, find the מחנך (could be sub-classes)
-                            let adjTeacher = classMechanech[adjClass] || null;
-                            if (!adjTeacher) {
-                                // Try sub-classes (e.g. ד1, ד2)
-                                const adjSubs = parallelClasses[adjClass];
-                                if (adjSubs) {
-                                    // Find one that teaches at this hour
-                                    adjTeacher = adjSubs.map(sc => classMechanech[sc]).find(t => {
-                                        const sch = teacherSchedule[t];
-                                        return (sch?.dayHours?.[currentDay] || []).map(String).includes(absenceHour);
-                                    });
-                                }
-                            }
-
-                            // Only suggest if adjacent teacher actually teaches at this hour
-                            if (adjTeacher) {
-                                const adjSchedule = teacherSchedule[adjTeacher];
-                                const adjHours = (adjSchedule?.dayHours?.[currentDay] || []).map(String);
-                                if (adjHours.includes(absenceHour)) {
-                                    mergeable.push({
-                                        id,
-                                        teacher: a.teacher,
-                                        hour: absenceHour,
-                                        parallelClass: adjClass,
-                                        coveringTeacher: adjTeacher,
-                                        isAdjacent: true
-                                    });
-                                }
-                            }
-                        });
+                    // Find class from dayHourClassesData or classMechanech
+                    let absentClass = null;
+                    const hourClassMap = dayHourClassesData[a.teacher]?.[currentDay] || {};
+                    if (hourClassMap[absenceHour]) {
+                        absentClass = hourClassMap[absenceHour];
+                    } else {
+                        const fromMechanech = Object.entries(classMechanech).find(([cls, t]) => t === a.teacher)?.[0];
+                        if (fromMechanech) absentClass = fromMechanech;
                     }
+                    if (!absentClass) return;
+
+                    const baseClass = absentClass.charAt(0);
+
+                    // If this class has a parallel, suggest merging with parallel
+                    if (classesWithParallel.includes(baseClass)) {
+                        const subs = parallelClasses[baseClass];
+                        if (subs) {
+                            const otherSub = subs.find(sc => sc !== absentClass);
+                            const coverTeacher = otherSub ? classMechanech[otherSub] : null;
+                            if (coverTeacher) {
+                                const coverHours = (teacherSchedule[coverTeacher]?.dayHours?.[currentDay] || []).map(String);
+                                if (coverHours.includes(absenceHour)) {
+                                    mergeable.push({
+                                        id, teacher: a.teacher, hour: absenceHour,
+                                        parallelClass: baseClass, coveringTeacher: coverTeacher
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // Also suggest adjacent classes
+                    const classIdx = classNames.indexOf(baseClass);
+                    if (classIdx === -1) return;
+                    const adjacentOptions = [];
+                    if (classIdx > 0) adjacentOptions.push(classNames[classIdx - 1]);
+                    if (classIdx < classNames.length - 1) adjacentOptions.push(classNames[classIdx + 1]);
+
+                    adjacentOptions.forEach(adjClass => {
+                        let adjTeacher = classMechanech[adjClass] || null;
+                        if (!adjTeacher) {
+                            const adjSubs = parallelClasses[adjClass];
+                            if (adjSubs) {
+                                adjTeacher = adjSubs.map(sc => classMechanech[sc]).find(t => {
+                                    return (teacherSchedule[t]?.dayHours?.[currentDay] || []).map(String).includes(absenceHour);
+                                });
+                            }
+                        }
+                        if (adjTeacher) {
+                            const adjHours = (teacherSchedule[adjTeacher]?.dayHours?.[currentDay] || []).map(String);
+                            if (adjHours.includes(absenceHour)) {
+                                mergeable.push({
+                                    id, teacher: a.teacher, hour: absenceHour,
+                                    parallelClass: adjClass, coveringTeacher: adjTeacher,
+                                    isAdjacent: true
+                                });
+                            }
+                        }
+                    });
                 }
             });
 
