@@ -2551,37 +2551,41 @@
                 section.style.display = 'block';
                 container.innerHTML = mergeable.map(m => {
                     const classLabel = m.absentClass || '';
+                    const escapedTeacher = (m.coveringTeacher || '').replace(/'/g, "\\'");
+                    let description;
+                    if (m.isAdjacent) {
+                        // Adjacent: e.g. "כיתות ב1+ב2 יאוחדו → הרב שמשון יכסה כיתה ג"
+                        const mergedSubs = parallelClasses[m.parallelClass];
+                        const subsLabel = mergedSubs ? mergedSubs.join('+') : m.parallelClass;
+                        description = `כיתות ${subsLabel} יאוחדו → ${m.coveringTeacher} יכסה כיתה ${classLabel}`;
+                    } else {
+                        description = `איחוד כיתה ${m.parallelClass} → ${m.coveringTeacher} יכסה`;
+                    }
                     return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 8px;">
                         <div>
                             <strong>${m.teacher}</strong> - שעה ${m.hour}${classLabel ? ` (כיתה ${classLabel})` : ''}
-                            <br><small style="color: #666;">
-                                ${m.isAdjacent ? `איחוד עם כיתה ${m.parallelClass}` : `איחוד כיתה ${m.parallelClass}`} →
-                                ${m.coveringTeacher} יכסה
-                            </small>
+                            <br><small style="color: #666;">${description}</small>
                         </div>
-                        <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}')">🔗 אחד</button>
+                        <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}', '${escapedTeacher}')">🔗 אחד</button>
                     </div>`;
                 }).join('');
             }
         }
 
         // Approve a merge
-        function approveMerge(id, parallelClass) {
+        function approveMerge(id, parallelClass, coveringTeacher) {
             const absence = absencesData[id];
             if (!absence) return;
 
-            // Find the covering teacher (parallel sub-class מחנך)
-            const absentTeacherSubClass = Object.entries(classMechanech)
-                .find(([cls, t]) => t === absence.teacher)?.[0];
-
-            // Find the OTHER sub-class teacher who will cover
-            const parallelSubClasses = parallelClasses[parallelClass];
-            let coveringTeacher = null;
-            if (parallelSubClasses) {
-                coveringTeacher = parallelSubClasses
-                    .map(sc => classMechanech[sc])
-                    .find(t => t !== absence.teacher);
+            // Use passed coveringTeacher, fallback to lookup
+            if (!coveringTeacher) {
+                const parallelSubClasses = parallelClasses[parallelClass];
+                if (parallelSubClasses) {
+                    coveringTeacher = parallelSubClasses
+                        .map(sc => classMechanech[sc])
+                        .find(t => t !== absence.teacher);
+                }
             }
 
             const coverName = coveringTeacher || 'איחוד כיתות';
