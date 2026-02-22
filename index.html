@@ -3449,31 +3449,43 @@
             document.getElementById('mass-send-modal').style.display = 'none';
         }
 
-        async function sendAllWhatsApp() {
-            const waTeachers = massSendTeachers.filter(t => t.method === 'whatsapp' && t.enabled);
-            if (waTeachers.length === 0) { alert('אין מורים מסומנים עם ווטסאפ'); return; }
+        let massSendQueue = [];
+        let massSendIndex = 0;
 
-            if (!confirm(`ייפתחו ${waTeachers.length} חלונות ווטסאפ עם הודעה מוכנה לשליחה. להמשיך?`)) return;
+        function sendAllWhatsApp() {
+            massSendQueue = massSendTeachers.filter(t => t.method === 'whatsapp' && t.enabled);
+            if (massSendQueue.length === 0) { alert('אין מורים מסומנים עם ווטסאפ'); return; }
+            massSendIndex = 0;
 
-            const statusDiv = document.getElementById('mass-send-status');
-            if (!statusDiv) {
-                const s = document.createElement('div');
-                s.id = 'mass-send-status';
-                s.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:200px; overflow-y:auto;';
-                document.getElementById('mass-send-calls').parentNode.appendChild(s);
+            let statusEl = document.getElementById('mass-send-status');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'mass-send-status';
+                statusEl.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:300px; overflow-y:auto;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(statusEl);
             }
-            const status = document.getElementById('mass-send-status');
-            status.innerHTML = '<strong>💬 פותח חלונות ווטסאפ...</strong><br>';
+            statusEl.innerHTML = '';
+            openNextWhatsApp();
+        }
 
-            for (let i = 0; i < waTeachers.length; i++) {
-                const t = waTeachers[i];
-                const waUrl = `https://wa.me/${phoneToInternational(t.phone)}?text=${encodeURIComponent(t.message)}`;
-                window.open(waUrl, '_blank');
-                status.innerHTML += `<span style="color:green;">✓ ${t.name} - נפתח</span><br>`;
-                if (i < waTeachers.length - 1) await new Promise(r => setTimeout(r, 800));
+        function openNextWhatsApp() {
+            const statusEl = document.getElementById('mass-send-status');
+            if (massSendIndex >= massSendQueue.length) {
+                statusEl.innerHTML += `<br><strong style="color:#2e7d32;">סיום! נפתחו ${massSendQueue.length} הודעות.</strong>`;
+                return;
             }
+            const t = massSendQueue[massSendIndex];
+            const waUrl = `https://wa.me/${phoneToInternational(t.phone)}?text=${encodeURIComponent(t.message)}`;
+            window.open(waUrl, '_blank');
+            statusEl.innerHTML += `<span style="color:green;">✓ ${t.name}</span><br>`;
+            massSendIndex++;
 
-            status.innerHTML += `<br><strong>נפתחו ${waTeachers.length} חלונות. לחץ "שלח" בכל חלון.</strong>`;
+            if (massSendIndex < massSendQueue.length) {
+                const next = massSendQueue[massSendIndex];
+                statusEl.innerHTML += `<button onclick="openNextWhatsApp()" style="margin:8px 0; padding:10px 20px; background:#25D366; color:white; border:none; border-radius:10px; font-size:1rem; cursor:pointer; width:100%;">💬 הבא: ${next.name} (${massSendIndex + 1}/${massSendQueue.length})</button>`;
+            } else {
+                statusEl.innerHTML += `<br><strong style="color:#2e7d32;">סיום! נפתחו ${massSendQueue.length} הודעות.</strong>`;
+            }
         }
 
         async function sendAllSMS() {
