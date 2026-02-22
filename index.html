@@ -934,6 +934,7 @@
                     <div id="mass-send-groups" style="margin-top:16px;"></div>
                     <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
                         <button class="btn btn-primary" onclick="sendAllWhatsApp()" style="background:#25D366; flex:1;">💬 ווטסאפ לכולם</button>
+                        <button class="btn btn-primary" onclick="sendAllEmail()" style="background:#EA4335; flex:1;">📧 מייל לכולם</button>
                         <button class="btn btn-primary" onclick="sendAllSMS()" style="background:#2196f3; flex:1;">✉️ SMS לכולם</button>
                         <button class="btn btn-primary" onclick="sendAllCalls()" style="background:#ff9800; flex:1;">📞 התקשר לכולם</button>
                     </div>
@@ -1494,32 +1495,32 @@
         // methods: 'whatsapp', 'sms', 'call'
         const teacherContacts = {
             'הרב אופיר': { phone: '0548455189', method: 'whatsapp' },
-            'הרב אבי': { phone: '0546640059', method: 'whatsapp' },
-            'הרב אלי': { phone: '0539614048', method: 'sms' },
-            'הרב אליהו שמשון': { phone: '0504131511', method: 'call' },
-            'הרב אורי': { phone: '0527638269', method: 'call' },
-            'הרב בישמוט': { phone: '0527157890', method: 'call' },
-            'הרב בני': { phone: '0523502280', method: 'whatsapp' },
-            'הרב דוד': { phone: '0525793572', method: 'whatsapp' },
-            'הרב יובל': { phone: '0506731527', method: 'whatsapp' },
-            'הרב ינון': { phone: '0548422021', method: 'call' },
-            'הרב יעקב חדד': { phone: '0532212156', method: 'sms' },
-            'הרב ליאור': { phone: '0543032836', method: 'whatsapp' },
-            'הרב מור': { phone: '0526410794', method: 'whatsapp' },
-            'הרב משה': { phone: '0526476608', method: 'sms' },
+            'הרב אבי': { phone: '0546640059', method: 'whatsapp', email: 'avibenhaim74@gmail.com' },
+            'הרב אלי': { phone: '0539614048', method: 'sms', email: 'eliben9943@gmail.com' },
+            'הרב אליהו שמשון': { phone: '0504131511', method: 'call', email: 'eliyahushim12@gmail.com' },
+            'הרב אורי': { phone: '0527638269', method: 'call', email: 'uriprans@gmail.com' },
+            'הרב בישמוט': { phone: '0527157890', method: 'call', email: 'y0527157890@gmail.com' },
+            'הרב בני': { phone: '0523502280', method: 'whatsapp', email: 'benyaminaltman@gmail.com' },
+            'הרב דוד': { phone: '0525793572', method: 'whatsapp', email: 'davidschwartzbaum32@gmail.com' },
+            'הרב יובל': { phone: '0506731527', method: 'whatsapp', email: 'yuvalshoshani@gmail.com' },
+            'הרב ינון': { phone: '0548422021', method: 'call', email: 'yinon3281@gmail.com' },
+            'הרב יעקב חדד': { phone: '0532212156', method: 'sms', email: 'yakovhdad@gmail.com' },
+            'הרב ליאור': { phone: '0543032836', method: 'whatsapp', email: 'liorelka1@gmail.com' },
+            'הרב מור': { phone: '0526410794', method: 'whatsapp', email: 'wmor74@gmail.com' },
+            'הרב משה': { phone: '0526476608', method: 'sms', email: 'moshedavid.st@gmail.com' },
             'הרב נהוראי': { phone: '0526583616', method: 'whatsapp' },
-            'הרב נועם': { phone: '0542461346', method: 'whatsapp' },
-            'הרב נריה': { phone: '0509919012', method: 'whatsapp' },
-            'הרב סימון': { phone: '0584405828', method: 'sms' },
-            'הרב פורת': { phone: '0545965321', method: 'sms' },
+            'הרב נועם': { phone: '0542461346', method: 'whatsapp', email: 'noamkor1@gmail.com' },
+            'הרב נריה': { phone: '0509919012', method: 'whatsapp', email: 'neriabsh@gmail.com' },
+            'הרב סימון': { phone: '0584405828', method: 'sms', email: 'simonbenzion@gmail.com' },
+            'הרב פורת': { phone: '0545965321', method: 'sms', email: 'poratyona@gmail.com' },
             'הרב צבי': { phone: '0503883660', method: 'whatsapp' },
-            'הרב צביקה': { phone: '0527671159', method: 'call' },
+            'הרב צביקה': { phone: '0527671159', method: 'call', email: 'zvi0527671159@gmail.com' },
             'הרב שלומי': { phone: '0543052239', method: 'sms' },
-            'הרב שמואל': { phone: '0546390328', method: 'whatsapp' },
-            'המורה זוהרה': { phone: '0527186621', method: 'call' },
-            'המורה חגית': { phone: '0548415819', method: 'call' },
+            'הרב שמואל': { phone: '0546390328', method: 'whatsapp', email: 'fischelsn@gmail.com' },
+            'המורה זוהרה': { phone: '0527186621', method: 'call', email: 'zoara6621@gmail.com' },
+            'המורה חגית': { phone: '0548415819', method: 'call', email: 'chagitb1000@gmail.com' },
             'המורה לאה': { phone: '0538202498', method: 'call' },
-            'המורה שרה אליה': { phone: '0504100954', method: 'call' },
+            'המורה שרה אליה': { phone: '0504100954', method: 'call', email: 's0504100954@gmail.com' },
             'המורה שרה תורג\'מן': { phone: '0548463377', method: 'call' },
         };
 
@@ -3494,6 +3495,37 @@
                     const slotsInfo = t.slots.map(s => `שעה ${s.hour}`).join(', ');
                     return `<a href="${waUrl}" target="_blank" style="display:block; margin:6px 0; padding:12px; background:#25D366; color:white; border-radius:10px; text-decoration:none; font-size:1rem; text-align:center;">💬 ${i + 1}. ${t.name} (${slotsInfo})</a>`;
                 }).join('');
+        }
+
+        function sendAllEmail() {
+            const emailTeachers = massSendTeachers.filter(t => t.enabled && teacherContacts[t.name]?.email);
+            if (emailTeachers.length === 0) { alert('אין מורים עם כתובת מייל ברשימה'); return; }
+
+            const bcc = emailTeachers.map(t => teacherContacts[t.name].email).join(',');
+            const subject = `בקשה למילוי מקום - יום ${dayNames[currentDay]}`;
+
+            // Build summary of what's needed
+            const unassigned = Object.entries(absencesData).filter(([id, a]) =>
+                String(a.day) === String(currentDay) && !a.substitute && !a.merged
+            );
+            const needsList = unassigned.map(([id, a]) => {
+                const cls = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                return `שעה ${a.hour}${cls ? ' כיתה ' + cls : ''} (${a.teacher})`;
+            }).join('\n');
+
+            const body = `שלום רב,\n\nיש צורך במילוי מקום ביום ${dayNames[currentDay]}:\n\n${needsList}\n\nאם אתם פנויים באחת מהשעות האלה, אשמח לתשובה.\n\nתודה רבה!`;
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&bcc=${encodeURIComponent(bcc)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(gmailUrl, '_blank');
+
+            let statusEl = document.getElementById('mass-send-status');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'mass-send-status';
+                statusEl.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(statusEl);
+            }
+            statusEl.innerHTML = `<strong style="color:#EA4335;">📧 נפתח Gmail עם ${emailTeachers.length} נמענים ב-BCC</strong>`;
         }
 
         async function sendAllSMS() {
