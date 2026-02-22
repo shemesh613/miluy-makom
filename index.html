@@ -3321,14 +3321,14 @@
         function buildPersonalMessage(teacher, freeHours) {
             // Get unassigned absences that match this teacher's free hours
             const unassigned = Object.entries(absencesData).filter(([id, a]) =>
-                a.day === currentDay && !a.substitute && !a.merged
+                String(a.day) === String(currentDay) && !a.substitute && !a.merged
             );
 
             const matchingSlots = [];
             freeHours.forEach(hour => {
                 const match = unassigned.find(([id, a]) => {
-                    const absHour = a.hour || (a.hours ? a.hours[0] : null);
-                    return absHour === hour;
+                    const absHour = String(a.hour || (a.hours ? a.hours[0] : ''));
+                    return absHour === String(hour);
                 });
                 if (match) {
                     const [id, a] = match;
