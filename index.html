@@ -2506,7 +2506,7 @@
                                 if (coverHours.includes(absenceHour)) {
                                     mergeable.push({
                                         id, teacher: a.teacher, hour: absenceHour,
-                                        parallelClass: baseClass, coveringTeacher: coverTeacher
+                                        absentClass, parallelClass: baseClass, coveringTeacher: coverTeacher
                                     });
                                 }
                             }
@@ -2535,7 +2535,7 @@
                             if (adjHours.includes(absenceHour)) {
                                 mergeable.push({
                                     id, teacher: a.teacher, hour: absenceHour,
-                                    parallelClass: adjClass, coveringTeacher: adjTeacher,
+                                    absentClass, parallelClass: adjClass, coveringTeacher: adjTeacher,
                                     isAdjacent: true
                                 });
                             }
@@ -2549,18 +2549,20 @@
                 section.style.display = 'none';
             } else {
                 section.style.display = 'block';
-                container.innerHTML = mergeable.map(m => `
+                container.innerHTML = mergeable.map(m => {
+                    const classLabel = m.absentClass || '';
+                    return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 8px;">
                         <div>
-                            <strong>${m.teacher}</strong> - שעה ${m.hour}
+                            <strong>${m.teacher}</strong> - שעה ${m.hour}${classLabel ? ` (כיתה ${classLabel})` : ''}
                             <br><small style="color: #666;">
-                                ${m.isAdjacent ? `כיתה סמוכה ${m.parallelClass}` : `כיתה ${m.parallelClass}`} -
+                                ${m.isAdjacent ? `איחוד עם כיתה ${m.parallelClass}` : `איחוד כיתה ${m.parallelClass}`} →
                                 ${m.coveringTeacher} יכסה
                             </small>
                         </div>
                         <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}')">🔗 אחד</button>
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
             }
         }
 
