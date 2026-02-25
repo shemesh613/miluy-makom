@@ -1505,7 +1505,7 @@
             'הרב יובל': { phone: '0506731527', method: 'whatsapp', email: 'yuvalshoshani@gmail.com' },
             'הרב ינון': { phone: '0548422021', method: 'call', email: 'yinon3281@gmail.com' },
             'הרב יעקב חדד': { phone: '0532212156', method: 'sms', email: 'yakovhdad@gmail.com' },
-            'הרב ליאור': { phone: '0543032836', method: 'whatsapp', email: 'liorelka1@gmail.com' },
+            'הרב ליאור': { phone: '0587148971', method: 'whatsapp', email: 'liorelka1@gmail.com' },
             'הרב מור': { phone: '0526410794', method: 'whatsapp', email: 'wmor74@gmail.com' },
             'הרב משה': { phone: '0526476608', method: 'sms', email: 'moshedavid.st@gmail.com' },
             'הרב נהוראי': { phone: '0526583616', method: 'whatsapp' },
@@ -3501,10 +3501,18 @@
             const emailTeachers = massSendTeachers.filter(t => t.enabled && teacherContacts[t.name]?.email);
             if (emailTeachers.length === 0) { alert('אין מורים עם כתובת מייל ברשימה'); return; }
 
-            const bcc = emailTeachers.map(t => teacherContacts[t.name].email).join(',');
+            let statusEl = document.getElementById('mass-send-status');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'mass-send-status';
+                statusEl.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:400px; overflow-y:auto;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(statusEl);
+            }
+
             const subject = `בקשה למילוי מקום - יום ${dayNames[currentDay]}`;
 
-            // Build summary of what's needed
+            // BCC link for all at once
+            const bcc = emailTeachers.map(t => teacherContacts[t.name].email).join(',');
             const unassigned = Object.entries(absencesData).filter(([id, a]) =>
                 String(a.day) === String(currentDay) && !a.substitute && !a.merged
             );
@@ -3512,81 +3520,57 @@
                 const cls = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                 return `שעה ${a.hour}${cls ? ' כיתה ' + cls : ''} (${a.teacher})`;
             }).join('\n');
+            const generalBody = `שלום רב,\n\nיש צורך במילוי מקום ביום ${dayNames[currentDay]}:\n\n${needsList}\n\nאם אתם פנויים באחת מהשעות האלה, אשמח לתשובה.\n\nתודה רבה!`;
+            const gmailAllUrl = `https://mail.google.com/mail/?view=cm&bcc=${encodeURIComponent(bcc)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(generalBody)}`;
 
-            const body = `שלום רב,\n\nיש צורך במילוי מקום ביום ${dayNames[currentDay]}:\n\n${needsList}\n\nאם אתם פנויים באחת מהשעות האלה, אשמח לתשובה.\n\nתודה רבה!`;
+            statusEl.innerHTML = `<a href="${gmailAllUrl}" target="_blank" style="display:block; margin:6px 0; padding:12px; background:#EA4335; color:white; border-radius:10px; text-decoration:none; font-size:1rem; text-align:center;">📧 Gmail לכולם (${emailTeachers.length} ב-BCC)</a>` +
+                `<strong>📧 או מייל אישי (${emailTeachers.length}):</strong><br><br>` +
+                emailTeachers.map((t, i) => {
+                    const email = teacherContacts[t.name].email;
+                    const mailUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(t.message)}`;
+                    const slotsInfo = t.slots.map(s => `שעה ${s.hour}`).join(', ');
+                    return `<a href="${mailUrl}" style="display:block; margin:6px 0; padding:12px; background:#EA4335; color:white; border-radius:10px; text-decoration:none; font-size:1rem; text-align:center;">📧 ${i + 1}. ${t.name} (${slotsInfo})</a>`;
+                }).join('');
+        }
 
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&bcc=${encodeURIComponent(bcc)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.open(gmailUrl, '_blank');
+        function sendAllSMS() {
+            const smsTeachers = massSendTeachers.filter(t => t.method === 'sms' && t.enabled);
+            if (smsTeachers.length === 0) { alert('אין מורים מסומנים עם SMS'); return; }
 
             let statusEl = document.getElementById('mass-send-status');
             if (!statusEl) {
                 statusEl = document.createElement('div');
                 statusEl.id = 'mass-send-status';
-                statusEl.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px;';
+                statusEl.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:400px; overflow-y:auto;';
                 document.getElementById('mass-send-calls').parentNode.appendChild(statusEl);
             }
-            statusEl.innerHTML = `<strong style="color:#EA4335;">📧 נפתח Gmail עם ${emailTeachers.length} נמענים ב-BCC</strong>`;
+
+            statusEl.innerHTML = `<strong>✉️ לחץ על כל קישור לשליחת SMS (${smsTeachers.length}):</strong><br><br>` +
+                smsTeachers.map((t, i) => {
+                    const smsUrl = `sms:${t.phone}?body=${encodeURIComponent(t.message)}`;
+                    const slotsInfo = t.slots.map(s => `שעה ${s.hour}`).join(', ');
+                    return `<a href="${smsUrl}" style="display:block; margin:6px 0; padding:12px; background:#2196f3; color:white; border-radius:10px; text-decoration:none; font-size:1rem; text-align:center;">✉️ ${i + 1}. ${t.name} (${slotsInfo})</a>`;
+                }).join('');
         }
 
-        async function sendAllSMS() {
-            const smsTeachers = massSendTeachers.filter(t => t.method === 'sms');
-            if (smsTeachers.length === 0) { alert('אין מורים עם הודעות SMS'); return; }
+        function sendAllCalls() {
+            const callTeachers = massSendTeachers.filter(t => t.method === 'call' && t.enabled);
+            if (callTeachers.length === 0) { alert('אין מורים מסומנים לשיחה'); return; }
 
-            if (!TWILIO.fromNumber) {
-                alert('Twilio לא מוגדר עדיין - אין מספר טלפון. נפתח SMS בדפדפן במקום.');
-                smsTeachers.forEach((t, i) => {
-                    setTimeout(() => { window.open(`sms:${t.phone}?body=${encodeURIComponent(t.message)}`); }, i * 800);
-                });
-                return;
+            let statusEl = document.getElementById('mass-send-status');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'mass-send-status';
+                statusEl.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:400px; overflow-y:auto;';
+                document.getElementById('mass-send-calls').parentNode.appendChild(statusEl);
             }
 
-            let status = document.getElementById('mass-send-status');
-            if (!status) {
-                status = document.createElement('div');
-                status.id = 'mass-send-status';
-                status.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:200px; overflow-y:auto;';
-                document.getElementById('mass-send-calls').parentNode.appendChild(status);
-            }
-            status.innerHTML = '<strong>📱 שולח SMS...</strong><br>';
-
-            for (const t of smsTeachers) {
-                try {
-                    await sendTwilioSMS(t.phone, t.message);
-                    status.innerHTML += `<span style="color:green;">✓ ${t.name} - SMS נשלח!</span><br>`;
-                } catch(e) {
-                    status.innerHTML += `<span style="color:red;">✗ ${t.name} - ${e.message}</span><br>`;
-                }
-                await new Promise(r => setTimeout(r, 300));
-            }
-        }
-
-        async function sendAllCalls() {
-            const callTeachers = massSendTeachers.filter(t => t.method === 'call');
-            if (callTeachers.length === 0) { alert('אין מורים לשיחה'); return; }
-
-            if (!TWILIO.fromNumber) {
-                alert('Twilio לא מוגדר - לא ניתן לבצע שיחות אוטומטיות. אנא רכוש מספר Twilio.');
-                return;
-            }
-
-            let status = document.getElementById('mass-send-status');
-            if (!status) {
-                status = document.createElement('div');
-                status.id = 'mass-send-status';
-                status.style.cssText = 'margin-top:12px; padding:12px; background:#f5f5f5; border-radius:10px; max-height:200px; overflow-y:auto;';
-                document.getElementById('mass-send-calls').parentNode.appendChild(status);
-            }
-            status.innerHTML += '<strong>📞 מתקשר...</strong><br>';
-
-            for (const t of callTeachers) {
-                try {
-                    await sendTwilioCall(t.phone, t.message);
-                    status.innerHTML += `<span style="color:green;">✓ ${t.name} - מתקשר!</span><br>`;
-                } catch(e) {
-                    status.innerHTML += `<span style="color:red;">✗ ${t.name} - ${e.message}</span><br>`;
-                }
-                await new Promise(r => setTimeout(r, 500));
-            }
+            statusEl.innerHTML = `<strong>📞 לחץ להתקשר (${callTeachers.length}):</strong><br><br>` +
+                callTeachers.map((t, i) => {
+                    const telUrl = `tel:${t.phone}`;
+                    const slotsInfo = t.slots.map(s => `שעה ${s.hour}`).join(', ');
+                    return `<a href="${telUrl}" style="display:block; margin:6px 0; padding:12px; background:#ff9800; color:white; border-radius:10px; text-decoration:none; font-size:1rem; text-align:center;">📞 ${i + 1}. ${t.name} (${slotsInfo})</a>`;
+                }).join('');
         }
 
         // Update contact button when substitute is selected from dropdown
