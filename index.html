@@ -1672,16 +1672,23 @@
             const escapedPhone = contact.phone;
             const escapedMsg = msg.replace(/'/g, "\\'").replace(/\n/g, '\\n');
 
+            const emailBtn = contact.email
+                ? `<a href="mailto:${contact.email}?subject=${encodeURIComponent('בקשה למילוי מקום')}&body=${encodeURIComponent(msg)}" class="contact-btn" style="background:#EA4335;color:white;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:0.8rem;" title="שלח מייל">📧</a>`
+                : '';
+
             if (contact.method === 'whatsapp') {
                 return `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
+                        ${emailBtn}
                         <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             } else if (contact.method === 'sms') {
                 const link = `sms:${contact.phone}?body=${encodeURIComponent(msg)}`;
                 return `<a href="${link}" class="contact-btn contact-sms" title="הודעה">✉️</a>
                         <button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
+                        ${emailBtn}
                         <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             } else {
                 return `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
+                        ${emailBtn}
                         <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             }
         }
