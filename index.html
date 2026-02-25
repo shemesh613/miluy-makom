@@ -3074,8 +3074,14 @@
                 const statusText = a.substitute
                     ? `ממלא מקום: <strong>${a.substitute}</strong>`
                     : a.merged
-                    ? `🔗 כיתה ${a.mergedClass || a.mergedWith} אוחדה`
+                    ? `🔗 כיתה ${a.mergedClass || a.mergedWith} אוחדה | מכסה: <strong>${a.substitute || 'איחוד'}</strong>`
                     : '';
+                // Contact buttons for merged/assigned teacher
+                let homeContactBtns = '';
+                if (a.merged && a.substitute) {
+                    const mergeMsg = `שלום ${a.substitute}, כיתה ${a.mergedClass || ''} אוחדה אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה רבה!`;
+                    homeContactBtns = getContactButtonsHTML(a.substitute, mergeMsg);
+                }
                 return `
                 <div class="absence-item" style="border-right-color: ${statusColor}">
                     <div class="absence-info">
@@ -3085,6 +3091,7 @@
                             ${a.reason ? ' | ' + a.reason : ''}
                             ${statusText ? ' | ' + statusText : ''}
                         </div>
+                        ${homeContactBtns ? `<div class="contact-buttons" style="margin-top:4px;">${homeContactBtns}</div>` : ''}
                     </div>
                     <button class="delete-btn" onclick="deleteAbsence('${id}')">🗑️</button>
                 </div>
@@ -3244,13 +3251,17 @@
                 const classAtHour = a.classAtHour || (currentHour ? getTeacherClassAtHour(a.teacher, currentDay, currentHour) : null);
                 const classInfo = classAtHour ? ` (כיתה ${classAtHour})` : '';
 
-                // Merged absence - show as assigned with blue indicator
+                // Merged absence - show as assigned with blue indicator + contact buttons
                 if (a.merged) {
+                    const coverTeacher = a.substitute || 'איחוד כיתות';
+                    const mergeMsg = `שלום ${coverTeacher}, כיתה ${a.mergedClass || ''} אוחדה אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה רבה!`;
+                    const mergeContactBtns = getContactButtonsHTML(coverTeacher, mergeMsg);
                     return `
                     <div class="absence-item" style="border-right-color: #2196f3; background: #e3f2fd;">
                         <div class="absence-info">
                             <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
-                            <div class="details">🔗 איחוד כיתה ${a.mergedClass || ''} | מכסה: <strong>${a.substitute || 'איחוד כיתות'}</strong></div>
+                            <div class="details">🔗 איחוד כיתה ${a.mergedClass || ''} | מכסה: <strong>${coverTeacher}</strong></div>
+                            ${mergeContactBtns ? `<div class="contact-buttons" style="margin-top:6px;">${mergeContactBtns}</div>` : ''}
                         </div>
                         <button class="btn-merge" onclick="cancelMerge('${id}')" style="background: #dc3545; font-size: 0.8rem;">↩️ בטל</button>
                     </div>
