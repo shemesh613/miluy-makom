@@ -2653,6 +2653,28 @@
             }
         }
 
+        // Swap roles: covering teacher ↔ staying teacher
+        function swapMergeRoles(id) {
+            const a = absencesData[id];
+            if (!a || !a.substitute || !a.stayingTeacher) return;
+
+            const newSubstitute = a.stayingTeacher;
+            const newStaying = a.substitute;
+
+            const updateData = {
+                substitute: newSubstitute,
+                stayingTeacher: newStaying
+            };
+
+            if (isOnline && database) {
+                database.ref('absences/' + id).update(updateData);
+            } else {
+                Object.assign(absencesData[id], updateData);
+                localStorage.setItem('absences', JSON.stringify(absencesData));
+                updateAllViews();
+            }
+        }
+
         // Populate all trip teacher selects
         function populateTripTeacherSelect() {
             document.querySelectorAll('.trip-teacher-select').forEach(select => {
@@ -3098,17 +3120,17 @@
                 const statusText = a.substitute
                     ? `ממלא מקום: <strong>${a.substitute}</strong>`
                     : a.merged
-                    ? `🔗 כיתה ${a.mergedClass || a.mergedWith} אוחדה | מכסה: <strong>${a.substitute || 'איחוד'}</strong>`
+                    ? `🔗 כיתה ${a.mergedClass || a.mergedWith} אוחדה | <strong>${a.substitute || 'איחוד'}</strong> → כיתה אחרת`
                     : '';
                 // Contact buttons for merged teachers (both covering and staying)
                 let homeContactBtns = '';
                 if (a.merged && a.substitute) {
                     const absentCls = classAtHour || '';
-                    const coverMsg = `שלום ${a.substitute}, אתה מכסה כיתה ${absentCls} בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה רבה!`;
-                    homeContactBtns = `<div style="font-size:0.85rem;">➡️ <strong>${a.substitute}</strong> מכסה ${absentCls} ${getContactButtonsHTML(a.substitute, coverMsg)}</div>`;
+                    const coverMsg = `שלום ${a.substitute}, תוכל בבקשה לעבור לכיתה ${absentCls} בשעה ${hourDisplay} (יום ${dayNames[currentDay]})? תודה רבה!`;
+                    homeContactBtns = `<div style="font-size:0.85rem;">➡️ <strong>${a.substitute}</strong> → כיתה ${absentCls} ${getContactButtonsHTML(a.substitute, coverMsg)}</div>`;
                     if (a.stayingTeacher) {
-                        const stayMsg = `שלום ${a.stayingTeacher}, כיתות ${a.mergedClass || ''} מאוחדות אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה רבה!`;
-                        homeContactBtns += `<div style="font-size:0.85rem; margin-top:4px;">🔗 <strong>${a.stayingTeacher}</strong> מאחד ${a.mergedClass || ''} ${getContactButtonsHTML(a.stayingTeacher, stayMsg)}</div>`;
+                        const stayMsg = `שלום ${a.stayingTeacher}, כיתות ${a.mergedClass || ''} מאוחדות אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה!`;
+                        homeContactBtns += `<div style="font-size:0.85rem; margin-top:4px;">🔗 <strong>${a.stayingTeacher}</strong> → מאחד כיתות ${a.mergedClass || ''} ${getContactButtonsHTML(a.stayingTeacher, stayMsg)}</div>`;
                     }
                 }
                 return `
@@ -3285,22 +3307,29 @@
                     const coverTeacher = a.substitute || 'איחוד כיתות';
                     const stayTeacher = a.stayingTeacher || '';
                     const absentClass = classAtHour || '';
+                    const mergedClass = a.mergedClass || '';
 
-                    // Message for covering teacher (goes to absent class)
-                    const coverMsg = `שלום ${coverTeacher}, אתה מכסה כיתה ${absentClass} בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה רבה!`;
+                    // Soft message for teacher going to absent class
+                    const coverMsg = `שלום ${coverTeacher}, תוכל בבקשה לעבור לכיתה ${absentClass} בשעה ${hourDisplay} (יום ${dayNames[currentDay]})? תודה רבה!`;
                     const coverBtns = getContactButtonsHTML(coverTeacher, coverMsg);
 
-                    // Message for staying teacher (merges both sub-classes)
-                    const stayMsg = stayTeacher ? `שלום ${stayTeacher}, כיתות ${a.mergedClass || ''} מאוחדות אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה רבה!` : '';
+                    // Soft message for teacher staying with merged classes
+                    const stayMsg = stayTeacher ? `שלום ${stayTeacher}, כיתות ${mergedClass} מאוחדות אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה!` : '';
                     const stayBtns = stayTeacher ? getContactButtonsHTML(stayTeacher, stayMsg) : '';
+
+                    // Swap button (only when both teachers exist)
+                    const swapBtn = stayTeacher ? `<button onclick="swapMergeRoles('${id}')" style="background:none;border:none;cursor:pointer;font-size:1.3rem;padding:2px 6px;" title="החלף תפקידים">🔄</button>` : '';
 
                     return `
                     <div class="absence-item" style="border-right-color: #2196f3; background: #e3f2fd;">
                         <div class="absence-info">
                             <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
-                            <div class="details">🔗 איחוד כיתה ${a.mergedClass || ''}</div>
-                            ${coverBtns ? `<div style="margin-top:6px; padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>➡️ ${coverTeacher}</strong> מכסה כיתה ${absentClass}<div class="contact-buttons" style="margin-top:4px;">${coverBtns}</div></div>` : ''}
-                            ${stayBtns ? `<div style="margin-top:6px; padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>🔗 ${stayTeacher}</strong> מאחד כיתות ${a.mergedClass || ''}<div class="contact-buttons" style="margin-top:4px;">${stayBtns}</div></div>` : ''}
+                            <div class="details">🔗 איחוד כיתה ${mergedClass}</div>
+                            <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+                                ${coverBtns ? `<div style="padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>➡️ ${coverTeacher}</strong> → כיתה ${absentClass}<div class="contact-buttons" style="margin-top:4px;">${coverBtns}</div></div>` : ''}
+                                ${swapBtn ? `<div style="text-align:center;">${swapBtn}</div>` : ''}
+                                ${stayBtns ? `<div style="padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>🔗 ${stayTeacher}</strong> → מאחד כיתות ${mergedClass}<div class="contact-buttons" style="margin-top:4px;">${stayBtns}</div></div>` : ''}
+                            </div>
                         </div>
                         <button class="btn-merge" onclick="cancelMerge('${id}')" style="background: #dc3545; font-size: 0.8rem;">↩️ בטל</button>
                     </div>
