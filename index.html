@@ -1491,6 +1491,20 @@
             return data[day][hour] || null;
         }
 
+        // Reverse lookup: find which teacher teaches a specific class at a specific day+hour
+        function getTeacherOfClassAtHour(className, day, hour) {
+            const strDay = Number(day);
+            const strHour = String(hour);
+            for (const [teacher, days] of Object.entries(dayHourClassesData)) {
+                if (days[strDay] && days[strDay][strHour] === className) {
+                    return teacher;
+                }
+            }
+            // Fallback to classMechanech only for 'בוקר' hours
+            if (strHour === 'בוקר') return classMechanech[className] || null;
+            return null;
+        }
+
         // Teacher contact data: phone, preferred contact method
         // methods: 'whatsapp', 'sms', 'call'
         const teacherContacts = {
@@ -2469,24 +2483,20 @@
 
                 const parallelClass = getTeacherParallelClass(a.teacher, currentDay);
                 if (parallelClass) {
-                    // Find covering teacher from parallel sub-class
+                    // Find covering teacher from parallel sub-class AT THIS SPECIFIC HOUR
                     const subClasses = parallelClasses[parallelClass];
                     const coveringTeacher = subClasses
-                        ? subClasses.map(sc => classMechanech[sc]).find(t => t !== a.teacher)
+                        ? subClasses.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour)).find(t => t && t !== a.teacher)
                         : null;
 
                     if (coveringTeacher) {
-                        const coveringSchedule = teacherSchedule[coveringTeacher];
-                        const coveringHours = (coveringSchedule?.dayHours?.[currentDay] || []).map(String);
-                        if (coveringHours.includes(absenceHour)) {
-                            mergeable.push({
-                                id,
-                                teacher: a.teacher,
-                                hour: absenceHour,
-                                parallelClass,
-                                coveringTeacher
-                            });
-                        }
+                        mergeable.push({
+                            id,
+                            teacher: a.teacher,
+                            hour: absenceHour,
+                            parallelClass,
+                            coveringTeacher
+                        });
                     }
                 }
 
@@ -2510,15 +2520,13 @@
                         const subs = parallelClasses[baseClass];
                         if (subs) {
                             const otherSub = subs.find(sc => sc !== absentClass);
-                            const coverTeacher = otherSub ? classMechanech[otherSub] : null;
-                            if (coverTeacher) {
-                                const coverHours = (teacherSchedule[coverTeacher]?.dayHours?.[currentDay] || []).map(String);
-                                if (coverHours.includes(absenceHour)) {
-                                    mergeable.push({
-                                        id, teacher: a.teacher, hour: absenceHour,
-                                        absentClass, parallelClass: baseClass, coveringTeacher: coverTeacher
-                                    });
-                                }
+                            // Find who ACTUALLY teaches the other sub-class at this hour
+                            const coverTeacher = otherSub ? getTeacherOfClassAtHour(otherSub, currentDay, absenceHour) : null;
+                            if (coverTeacher && coverTeacher !== a.teacher) {
+                                mergeable.push({
+                                    id, teacher: a.teacher, hour: absenceHour,
+                                    absentClass, parallelClass: baseClass, coveringTeacher: coverTeacher
+                                });
                             }
                         }
                     }
@@ -2531,24 +2539,23 @@
                     if (classIdx < classNames.length - 1) adjacentOptions.push(classNames[classIdx + 1]);
 
                     adjacentOptions.forEach(adjClass => {
-                        let adjTeacher = classMechanech[adjClass] || null;
-                        if (!adjTeacher) {
-                            const adjSubs = parallelClasses[adjClass];
-                            if (adjSubs) {
-                                adjTeacher = adjSubs.map(sc => classMechanech[sc]).find(t => {
-                                    return (teacherSchedule[t]?.dayHours?.[currentDay] || []).map(String).includes(absenceHour);
-                                });
-                            }
+                        // Find who teaches the adjacent class (or its sub-classes) at this hour
+                        let adjTeacher = null;
+                        const adjSubs = parallelClasses[adjClass];
+                        if (adjSubs) {
+                            // Adjacent class has sub-classes — find teacher of any sub at this hour
+                            adjTeacher = adjSubs.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour)).find(t => t && t !== a.teacher);
                         }
-                        if (adjTeacher) {
-                            const adjHours = (teacherSchedule[adjTeacher]?.dayHours?.[currentDay] || []).map(String);
-                            if (adjHours.includes(absenceHour)) {
-                                mergeable.push({
-                                    id, teacher: a.teacher, hour: absenceHour,
-                                    absentClass, parallelClass: adjClass, coveringTeacher: adjTeacher,
-                                    isAdjacent: true
-                                });
-                            }
+                        if (!adjTeacher) {
+                            // No sub-classes or not found — try the base class directly
+                            adjTeacher = getTeacherOfClassAtHour(adjClass, currentDay, absenceHour);
+                        }
+                        if (adjTeacher && adjTeacher !== a.teacher) {
+                            mergeable.push({
+                                id, teacher: a.teacher, hour: absenceHour,
+                                absentClass, parallelClass: adjClass, coveringTeacher: adjTeacher,
+                                isAdjacent: true
+                            });
                         }
                     });
                 }
@@ -2588,23 +2595,25 @@
             const absence = absencesData[id];
             if (!absence) return;
 
-            // Use passed coveringTeacher, fallback to lookup
+            const absenceHour = String(absence.hour || (absence.hours ? absence.hours[0] : ''));
+
+            // Use passed coveringTeacher, fallback to hour-based lookup
             if (!coveringTeacher) {
                 const parallelSubClasses = parallelClasses[parallelClass];
                 if (parallelSubClasses) {
                     coveringTeacher = parallelSubClasses
-                        .map(sc => classMechanech[sc])
-                        .find(t => t !== absence.teacher);
+                        .map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour))
+                        .find(t => t && t !== absence.teacher);
                 }
             }
 
             const coverName = coveringTeacher || 'איחוד כיתות';
 
-            // Find the staying teacher (the one who takes both sub-classes)
+            // Find the staying teacher (the one who takes both sub-classes) at this specific hour
             let stayingTeacher = '';
             const subClasses = parallelClasses[parallelClass];
             if (subClasses && coveringTeacher) {
-                stayingTeacher = subClasses.map(sc => classMechanech[sc]).find(t => t && t !== coveringTeacher) || '';
+                stayingTeacher = subClasses.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour)).find(t => t && t !== coveringTeacher) || '';
             }
 
             if (!confirm(`לאשר איחוד כיתה ${parallelClass}?\n${coverName} יכסה את השעה${stayingTeacher ? '\n' + stayingTeacher + ' יאחד את הכיתות' : ''}`)) return;
