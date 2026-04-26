@@ -1853,6 +1853,8 @@
 
         // Check if reporting is locked for a day
         // Rule: Day X reporting locks at 22:30 on day X-1 (the evening before)
+        // Weekly reset: On Saturday the entire next week (Sun-Fri) opens up,
+        // subject to the 22:30 rule for Sunday (which is "tomorrow")
         function isDayLocked(targetDay) {
             // Check if day was manually unlocked by admin
             if (unlockedDaysData[targetDay]) {
@@ -1870,15 +1872,21 @@
                 return 'shabbat'; // Special case - not locked, just no school
             }
 
-            // Calculate the day before the target day
-            const dayBefore = targetDay === 0 ? 6 : targetDay - 1;
+            // Weekly reset: when today is Saturday, the entire next week opens.
+            // Sunday is "tomorrow" so still subject to the 22:30 lock rule.
+            if (todayDay === 6) {
+                if (targetDay === 0) {
+                    return isPast2230;
+                }
+                return false; // Mon-Fri of next week - open
+            }
 
             // Calculate "tomorrow" from today's perspective
             const tomorrow = (todayDay + 1) % 7;
 
-            // If target day already passed this week (target < today, except Sat->Sun)
-            if (targetDay < todayDay && !(targetDay === 0 && todayDay === 6)) {
-                return true; // Past day - locked
+            // If target day already passed this week - locked
+            if (targetDay < todayDay) {
+                return true;
             }
 
             // If target is today - locked (can't report same day)
@@ -1886,13 +1894,7 @@
                 return true;
             }
 
-            // Special case: target is Sunday (0) and today is Saturday (6)
-            // Sunday is "tomorrow" from Saturday
-            if (targetDay === 0 && todayDay === 6) {
-                return isPast2230;
-            }
-
-            // If target is tomorrow
+            // If target is tomorrow - subject to 22:30 rule
             if (targetDay === tomorrow) {
                 return isPast2230;
             }
