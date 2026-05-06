@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת מילוי מקום - ת"ת (v2.9)</title>
+    <title>מערכת מילוי מקום - ת"ת (v3.0)</title>
     <style>
         * {
             margin: 0;
@@ -697,9 +697,64 @@
             align-items: center;
             margin-right: 8px;
         }
+
+        /* Issue #3: Mobile loading screen */
+        #loading-screen {
+            position: fixed; top:0; left:0; right:0; bottom:0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999; flex-direction: column; color: white;
+            transition: opacity 0.5s ease;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-spinner {
+            width:50px; height:50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius:50%;
+            animation: spin 1s linear infinite; margin-top:20px;
+        }
+        /* Issue #1: Compact substitute assignment */
+        .change-sub-btn {
+            background:#667eea; color:white; border:none;
+            padding:4px 10px; border-radius:8px; cursor:pointer; font-size:0.85rem;
+        }
+        .sub-edit-dropdown { display:none; margin-top:6px; }
+        .sub-edit-dropdown.open { display:block; }
+        /* Issue #7: Print/PDF */
+        @media print {
+            #loading-screen, .connection-status, .nav-tabs, .day-selector,
+            .delete-btn, .contact-buttons, .change-sub-btn, .btn-merge,
+            .modal-overlay { display: none !important; }
+            body { background: white !important; }
+            .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+            .absence-item { break-inside: avoid; }
+            .substitute-select { display: none !important; }
+            .page { display: none !important; }
+            .page.active { display: block !important; }
+            .merged-sub-name { display: block !important; font-weight:bold; color:#1565c0; }
+        }
+        /* Issue #11: Availability styles */
+        .avail-card {
+            background:#f0fff4; border:2px solid #4caf50;
+            border-radius:10px; padding:10px 15px; margin:6px 0;
+            display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;
+        }
+        .avail-card.pending { background:#fff3e0; border-color:#ff9800; }
+        .avail-badge { padding:3px 10px; border-radius:10px; font-size:0.8rem; color:white; }
+        .avail-badge.approved { background:#4caf50; }
+        .avail-badge.pending-badge { background:#ff9800; }
     </style>
 </head>
 <body>
+
+    <!-- Issue #3: Loading screen (hides after Firebase connects or 8 seconds) -->
+    <div id="loading-screen">
+        <div style="font-size:3rem;">📚</div>
+        <div style="font-size:1.8rem;margin:10px 0;font-weight:bold;">מערכת מילוי מקום</div>
+        <div class="loading-spinner"></div>
+        <div style="margin-top:15px;opacity:0.8;font-size:0.9rem;">מתחבר לנתונים...</div>
+    </div>
+
     <div class="container">
         <header>
             <h1>📚 מערכת מילוי מקום</h1>
@@ -729,6 +784,7 @@
             <button class="nav-tab" data-page="trip">🚌 טיולים</button>
             <button class="nav-tab" data-page="substitute">🔄 מילוי מקום</button>
             <button class="nav-tab" data-page="suggestions">📖 הנחיות</button>
+            <button class="nav-tab" data-page="availability">📅 זמינות מורים</button>
             <button class="nav-tab" data-page="settings">⚙️ הגדרות</button>
         </nav>
 
@@ -990,6 +1046,72 @@
             </div>
         </div>
 
+
+        <!-- Issue #11: Teacher Availability Page -->
+        <div id="page-availability" class="page">
+            <div class="card">
+                <h2><span class="icon">📅</span> מורים פנויים למילוי מקום</h2>
+                <p style="color:#666;margin-bottom:15px;">רשימת המורים שפרסמו זמינות</p>
+                <div id="availability-published-list">
+                    <div class="empty-state"><div class="icon">📭</div><p>אין מורים שפרסמו זמינות</p></div>
+                </div>
+            </div>
+            <div class="card">
+                <h2><span class="icon">✏️</span> פרסם את הזמינות שלי</h2>
+                <p style="color:#666;margin-bottom:15px;">הפרסום ייכנס לתוקף אחרי אישור המנהל</p>
+                <div class="form-group">
+                    <label>שמך</label>
+                    <select id="avail-teacher-select"><option value="">-- בחר מורה --</option></select>
+                </div>
+                <div class="form-group">
+                    <label>יום</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                        <button type="button" class="day-btn avail-day-btn" data-avday="0">ראשון</button>
+                        <button type="button" class="day-btn avail-day-btn" data-avday="1">שני</button>
+                        <button type="button" class="day-btn avail-day-btn" data-avday="2">שלישי</button>
+                        <button type="button" class="day-btn avail-day-btn" data-avday="3">רביעי</button>
+                        <button type="button" class="day-btn avail-day-btn" data-avday="4">חמישי</button>
+                        <button type="button" class="day-btn avail-day-btn" data-avday="5">שישי</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>שעות פנויות</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="בוקר">בוקר</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="4">4</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="5">5</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="6">6</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="7">7</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="8">8</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="9">9</button>
+                        <button type="button" class="hour-btn avail-hour-btn" data-avhour="10">10</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="submitMyAvailability()">📤 שלח לאישור מנהל</button>
+            </div>
+            <div class="card" id="avail-admin-section" style="display:none; background:linear-gradient(135deg,#e8f5e9,#c8e6c9); border:2px solid #4caf50;">
+                <h2 style="color:#2e7d32;"><span class="icon">👨‍💼</span> ניהול זמינויות (מנהל)</h2>
+                <div id="availability-pending-list"><p style="color:#666;">אין בקשות ממתינות</p></div>
+                <hr style="margin:20px 0;">
+                <h3 style="color:#2e7d32;">➕ הוסף זמינות למורה (מנהל)</h3>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
+                    <select id="avail-admin-teacher" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <option value="">-- בחר מורה --</option>
+                    </select>
+                    <select id="avail-admin-day" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;">
+                        <option value="">-- יום --</option>
+                        <option value="0">ראשון</option><option value="1">שני</option>
+                        <option value="2">שלישי</option><option value="3">רביעי</option>
+                        <option value="4">חמישי</option><option value="5">שישי</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" onclick="adminSuggestAvailability()">הצע שעות פנויות</button>
+                </div>
+                <div id="avail-admin-hours-suggestion"></div>
+                <div id="avail-admin-hours-select" style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;"></div>
+                <button class="btn btn-primary" onclick="adminPublishAvailability()" id="avail-admin-publish-btn" style="display:none;">📣 פרסם לכולם</button>
+            </div>
+        </div>
+
         <!-- הגדרות -->
         <div id="page-settings" class="page">
             <div class="card">
@@ -1046,13 +1168,40 @@
                     <span class="badge badge-optional">מתנדב קבוע</span>
                 </div>
             </div>
+
+            <div class="card">
+                <h2><span class="icon">💾</span> גיבוי אוטומטי</h2>
+                <p style="color:#666;margin-bottom:10px;">נשמר גיבוי אחרון אוטומטי כל שעה.</p>
+                <div id="last-backup-time" style="color:#28a745;margin-bottom:10px;font-size:0.9rem;"></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-sm" onclick="performAutoBackup(true)">💾 גבה עכשיו</button>
+                    <button class="btn btn-secondary btn-sm" onclick="restoreFromBackup()">📥 שחזר גיבוי</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">👨‍🏫</span> הוסף מורה קבוע למאגר</h2>
+                <p style="color:#666;margin-bottom:10px;">מורים שמוסיפים כאן לא יימחקו עם עדכון המערכת.</p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                    <input type="text" id="new-teacher-name" placeholder="שם המורה" style="padding:10px;border:2px solid #e0e0e0;border-radius:8px;flex:1;min-width:150px;">
+                    <button class="btn btn-primary btn-sm" onclick="addCustomTeacher()">➕ הוסף</button>
+                </div>
+                <div id="custom-teachers-list"></div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">🖨️</span> הדפסה / PDF</h2>
+                <p style="color:#666;margin-bottom:10px;">הדפס את תצוגת היום הנוכחי.</p>
+                <button class="btn btn-primary" onclick="window.print()">🖨️ הדפס / שמור PDF</button>
+            </div>
+
         </div>
     </div>
 
     <div id="connection-status" class="connection-status offline">
         <span class="dot"></span>
         <span id="connection-text">טוען...</span>
-        <span style="margin-right: 10px; opacity: 0.7; font-size: 0.8rem;">v2.7</span>
+        <span style="margin-right: 10px; opacity: 0.7; font-size: 0.8rem;">v3.0</span>
     </div>
 
     <!-- Password Modal -->
@@ -1707,6 +1856,21 @@
             }
         }
 
+
+        // Issue #5: Persistent custom teachers
+        let customTeachersData = {};
+        // Issue #11: Teacher availability
+        let availabilityData = {};
+
+        // Issue #3: Hide loading screen
+        function hideLoadingScreen() {
+            const screen = document.getElementById('loading-screen');
+            if (!screen) return;
+            screen.style.opacity = '0';
+            setTimeout(() => { screen.style.display = 'none'; }, 500);
+        }
+        setTimeout(hideLoadingScreen, 8000); // auto-hide after 8s
+
         // Global variables
         let database = null;
         let isOnline = false;
@@ -1784,6 +1948,7 @@
                     console.log("Firebase connected!");
                     isOnline = true;
                     updateConnectionStatus(true);
+                    hideLoadingScreen();
                     syncPendingAbsences();
                     loadAllData();
                 })
@@ -1791,6 +1956,7 @@
                     console.error("Firebase error:", error);
                     isOnline = false;
                     updateConnectionStatus(false);
+                    hideLoadingScreen();
                     loadFromLocalStorage();
                 });
         } else {
@@ -1822,18 +1988,34 @@
         }
 
         // Populate teacher select
+        // Issue #5: Get combined teacher list (built-in + custom)
+        function getFullTeacherList() {
+            const customNames = Object.values(customTeachersData)
+                .map(t => typeof t === 'object' ? t.name : t)
+                .filter(Boolean);
+            const combined = [...allTeachers];
+            customNames.forEach(n => { if (!combined.includes(n)) combined.push(n); });
+            return combined.sort((a,b) => a.localeCompare(b, 'he'));
+        }
+
         function populateTeacherSelect() {
-            const select = document.getElementById('teacher-select');
-            const addSelect = document.getElementById('add-available-teacher');
+            const selectors = [
+                document.getElementById('teacher-select'),
+                document.getElementById('add-available-teacher'),
+                document.getElementById('avail-teacher-select'),
+                document.getElementById('avail-admin-teacher')
+            ].filter(Boolean);
 
-            select.innerHTML = '<option value="">-- בחר מורה --</option>';
-            addSelect.innerHTML = '<option value="">-- בחר מורה --</option>';
+            const fullList = getFullTeacherList();
 
-            allTeachers.forEach(teacher => {
-                select.innerHTML += `<option value="${teacher}">${teacher}</option>`;
-                addSelect.innerHTML += `<option value="${teacher}">${teacher}</option>`;
+            selectors.forEach(sel => {
+                const isMainSelect = sel.id === 'teacher-select';
+                sel.innerHTML = '<option value="">-- בחר מורה --</option>';
+                fullList.forEach(t => {
+                    sel.innerHTML += `<option value="${t}">${t}</option>`;
+                });
+                if (isMainSelect) sel.innerHTML += '<option value="other">אחר (הזן ידנית)</option>';
             });
-            select.innerHTML += '<option value="other">אחר (הזן ידנית)</option>';
         }
         populateTeacherSelect();
         populateTripTeacherSelect();
@@ -2036,6 +2218,11 @@
             document.getElementById('page-' + pageId).classList.add('active');
             document.querySelector(`.nav-tab[data-page="${pageId}"]`).classList.add('active');
             if (pageId === 'report') updateLockedNotice();
+            if (pageId === 'availability') {
+                const adminSec = document.getElementById('avail-admin-section');
+                if (adminSec) adminSec.style.display = settingsUnlocked ? 'block' : 'none';
+                updateAvailabilityUI();
+            }
             updateAllViews();
         }
 
@@ -2199,6 +2386,19 @@
                 updateHonorBoard();
             });
 
+            // Issue #5: Custom teachers from Firebase
+            database.ref('customTeachers').on('value', (snapshot) => {
+                customTeachersData = snapshot.val() || {};
+                updateCustomTeachersList();
+                populateTeacherSelect();
+            });
+
+            // Issue #11: Teacher availability
+            database.ref('teacherAvailability').on('value', (snapshot) => {
+                availabilityData = snapshot.val() || {};
+                updateAvailabilityUI();
+            });
+
             database.ref('unlockedDays').on('value', (snapshot) => {
                 unlockedDaysData = snapshot.val() || {};
                 updateUnlockedDaysList();
@@ -2341,6 +2541,7 @@
                 Promise.all(promises).then(() => {
                     alert('✅ נשמר בהצלחה!');
                     if (teacherEmail) sendConfirmationEmail(teacher, currentDay, hoursText, reason, teacherEmail);
+                    setTimeout(function() { checkDualParallelAbsence(teacher, currentDay); }, 1000);
                     clearForm();
                 }).catch(err => {
                     console.error('Firebase save error:', err);
@@ -3012,6 +3213,22 @@
                 }
             });
 
+            // Issue #9: Include custom teachers (שהייה - in building, available for substitute)
+            const fullList = getFullTeacherList();
+            fullList.forEach(name => {
+                if (teacherSchedule[name]) return; // already handled
+                if (teachersOnTrip.includes(name)) return;
+                if (notWorking.find(t => t.name === name)) return;
+                if (optional.find(t => t.name === name)) return;
+                if (required.find(t => t.name === name)) return;
+                optional.push({
+                    name,
+                    hours: ['4','5','6','7','8'],
+                    reason: 'שהייה - פנוי/ה למ"מ',
+                    priority: 1
+                });
+            });
+
             // Sort optional by priority
             optional.sort((a, b) => (a.priority || 99) - (b.priority || 99));
 
@@ -3049,6 +3266,7 @@
             updateLockedNotice();
             updateSuggestionsList();
             updateHonorBoard();
+            updateCustomTeachersList();
         }
 
         // Update trip notice
@@ -3347,23 +3565,41 @@
                     : '<option value="" disabled>אין מורים פנויים בשעה זו</option>';
 
                 const contactBtnId = `contact-${id}`;
+                // Issue #1: Compact view when substitute assigned; Issue #8: joint absence badge
+                const jointBadge = a.jointAbsence ? `<span style="background:#e91e63;color:white;padding:2px 8px;border-radius:10px;font-size:0.75rem;margin-right:4px;">🔗 רוחב עם ${a.jointPartner||''}</span>` : '';
+                const subContactMsg = `שלום ${a.substitute}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`;
+                const assignedSection = a.substitute ? `
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span class="status-badge reported">✓ ${a.substitute}</span>
+                        <button class="change-sub-btn" onclick="toggleSubEdit('${id}')">✏️ שינוי</button>
+                    </div>
+                    <div id="sub-edit-${id}" class="sub-edit-dropdown">
+                        <select class="substitute-select" onchange="assignSubstitute('${id}', this.value); updateContactBtn('${id}', this.value, '${hourDisplay}', '${classAtHour || ''}')">
+                            <option value="">-- בחר ממלא מקום חדש --</option>
+                            ${options}
+                            <option value="other">אחר...</option>
+                        </select>
+                    </div>
+                    <span id="${contactBtnId}" class="contact-buttons" style="margin-top:4px;">
+                        ${getContactButtonsHTML(a.substitute, subContactMsg)}
+                    </span>
+                ` : `
+                    <select class="substitute-select" onchange="assignSubstitute('${id}', this.value); updateContactBtn('${id}', this.value, '${hourDisplay}', '${classAtHour || ''}')">
+                        <option value="">-- בחר ממלא מקום --</option>
+                        ${options}
+                        <option value="other">אחר...</option>
+                    </select>
+                    <span id="${contactBtnId}" class="contact-buttons" style="margin-top:4px;"></span>
+                `;
                 return `
                 <div class="absence-item" style="border-right-color: ${a.substitute ? '#28a745' : '#ffc107'}">
                     <div class="absence-info">
-                        <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
+                        <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo} ${jointBadge}</div>
                         <div class="details">חסר בשעה ${hourDisplay}${classInfo}${a.tripRelated ? ' | 🚌 מלווה בטיול' : ''}${a.suggestion ? ' | <span style="cursor:pointer;" onclick="toggleSuggestion(this)" title="לחץ לצפייה">📖 יש הנחיות</span>' : ''}</div>
                         ${a.suggestion ? `<div class="suggestion-detail" style="display:none; margin-top:6px; padding:8px; background:#fff3e0; border-radius:8px; border-right:3px solid #ff9800; font-size:0.9rem;">📖 <strong>הנחיות:</strong> ${a.suggestion}</div>` : ''}
                     </div>
                     <div class="absence-status">
-                        <select class="substitute-select" onchange="assignSubstitute('${id}', this.value); updateContactBtn('${id}', this.value, '${hourDisplay}', '${classAtHour || ''}')">
-                            <option value="">-- בחר ממלא מקום --</option>
-                            ${options}
-                            <option value="other">אחר...</option>
-                        </select>
-                        ${a.substitute ? `<span class="status-badge reported">✓ ${a.substitute}</span>` : ''}
-                        <span id="${contactBtnId}" class="contact-buttons" style="margin-top:4px;">
-                            ${a.substitute ? getContactButtonsHTML(a.substitute, `שלום ${a.substitute}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`) : ''}
-                        </span>
+                        ${assignedSection}
                     </div>
                 </div>
             `}).join('');
@@ -3886,6 +4122,274 @@
             updateAllViews();
         }).catch(function() {
             updateAllViews();
+        });
+
+
+        // Issue #1: Toggle substitute edit dropdown
+        function toggleSubEdit(id) {
+            var el = document.getElementById('sub-edit-' + id);
+            if (el) el.classList.toggle('open');
+        }
+
+        // Issue #4: Auto backup (keep only last)
+        function performAutoBackup(manual) {
+            manual = manual || false;
+            if (!isOnline || !database) {
+                if (manual) alert('אין חיבור לענן');
+                return;
+            }
+            var backupData = {
+                absences: absencesData,
+                tripClasses: tripClassesData,
+                availableTeachers: availableTeachersData,
+                timestamp: Date.now(),
+                dateStr: new Date().toLocaleString('he-IL')
+            };
+            database.ref('autoBackup/latest').set(backupData)
+                .then(function() {
+                    var el = document.getElementById('last-backup-time');
+                    if (el) el.textContent = 'גיבוי אחרון: ' + backupData.dateStr;
+                    if (manual) alert('גיבוי נשמר!');
+                })
+                .catch(function(e) { if (manual) alert('שגיאה: ' + e.message); });
+        }
+        function restoreFromBackup() {
+            if (!isOnline || !database) { alert('אין חיבור'); return; }
+            if (!confirm('שחזר מהגיבוי האחרון?')) return;
+            database.ref('autoBackup/latest').once('value').then(function(snap) {
+                var backup = snap.val();
+                if (!backup) { alert('לא נמצא גיבוי'); return; }
+                var date = backup.dateStr || new Date(backup.timestamp).toLocaleString('he-IL');
+                if (!confirm('שחזר מגיבוי: ' + date + '?')) return;
+                var ops = [];
+                if (backup.absences) ops.push(database.ref('absences').set(backup.absences));
+                if (backup.tripClasses) ops.push(database.ref('tripClasses').set(backup.tripClasses));
+                if (backup.availableTeachers) ops.push(database.ref('availableTeachers').set(backup.availableTeachers));
+                Promise.all(ops).then(function() { alert('שוחזר!'); }).catch(function(e) { alert('שגיאה: ' + e.message); });
+            });
+        }
+        setInterval(function() { performAutoBackup(false); }, 60 * 60 * 1000);
+        setTimeout(function() { performAutoBackup(false); }, 3 * 60 * 1000);
+
+        // Issue #5: Custom teachers management
+        function addCustomTeacher() {
+            var input = document.getElementById('new-teacher-name');
+            var name = (input ? input.value : '').trim();
+            if (!name) { alert('נא להזין שם מורה'); return; }
+            if (getFullTeacherList().includes(name)) { alert('מורה זה כבר קיים במאגר'); return; }
+            var key = name.replace(/[.#$\[\]\/]/g, '_') + '_' + Date.now();
+            var data = { name: name, addedAt: Date.now() };
+            if (isOnline && database) {
+                database.ref('customTeachers/' + key).set(data)
+                    .then(function() { if (input) input.value = ''; alert(name + ' נוסף!'); })
+                    .catch(function(e) { alert('שגיאה: ' + e.message); });
+            } else {
+                customTeachersData[key] = data;
+                if (input) input.value = '';
+                updateCustomTeachersList();
+                populateTeacherSelect();
+                alert(name + ' נוסף');
+            }
+        }
+        function removeCustomTeacher(key) {
+            var t = customTeachersData[key];
+            var name = t ? (typeof t === 'object' ? t.name : t) : key;
+            if (!confirm('למחוק את ' + name + '?')) return;
+            if (isOnline && database) {
+                database.ref('customTeachers/' + key).remove();
+            } else {
+                delete customTeachersData[key];
+                updateCustomTeachersList();
+                populateTeacherSelect();
+            }
+        }
+        function updateCustomTeachersList() {
+            var container = document.getElementById('custom-teachers-list');
+            if (!container) return;
+            var teachers = Object.entries(customTeachersData);
+            if (teachers.length === 0) {
+                container.innerHTML = '<p style="color:#666;font-size:0.9rem;">אין מורים שנוספו ידנית</p>';
+                return;
+            }
+            container.innerHTML = teachers.map(function(entry) {
+                var key = entry[0]; var t = entry[1];
+                var name = typeof t === 'object' ? t.name : t;
+                var ek = key.replace(/'/g, "\\'");
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8f9fa;border-radius:8px;margin:4px 0;">' +
+                    '<span>👤 ' + name + '</span>' +
+                    '<button class="btn btn-danger btn-sm" onclick="removeCustomTeacher(\'' + ek + '\')">🗑️</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        // Issue #8: Dual parallel absence check
+        function checkDualParallelAbsence(newTeacher, day) {
+            if (!newTeacher) return;
+            var classes = Object.entries(parallelClasses);
+            for (var ci = 0; ci < classes.length; ci++) {
+                var baseClass = classes[ci][0];
+                var subClasses = classes[ci][1];
+                if (!subClasses) continue;
+                for (var si = 0; si < subClasses.length; si++) {
+                    var sc = subClasses[si];
+                    if (classMechanech[sc] !== newTeacher) continue;
+                    var otherSubs = subClasses.filter(function(s) { return s !== sc; });
+                    for (var oi = 0; oi < otherSubs.length; oi++) {
+                        var partnerTeacher = classMechanech[otherSubs[oi]];
+                        if (!partnerTeacher) continue;
+                        var partnerAbsent = Object.values(absencesData).some(function(a) {
+                            return a.teacher === partnerTeacher && String(a.day) === String(day) && !a.merged;
+                        });
+                        if (!partnerAbsent) continue;
+                        var newHours = Object.values(absencesData)
+                            .filter(function(a) { return a.teacher === newTeacher && String(a.day) === String(day); })
+                            .map(function(a) { return a.hour; });
+                        var partnerHours = Object.values(absencesData)
+                            .filter(function(a) { return a.teacher === partnerTeacher && String(a.day) === String(day); })
+                            .map(function(a) { return a.hour; });
+                        var shared = newHours.filter(function(h) { return partnerHours.includes(h); });
+                        shared.forEach(function(hour) {
+                            (function(h, pt, bc) {
+                                setTimeout(function() {
+                                    var oneForBoth = confirm(
+                                        'בשעה ' + h + ' יש רוחב לכיתה ' + bc + '\n' +
+                                        newTeacher + ' ו-' + pt + ' שניהם נעדרים.\n\n' +
+                                        'אישור = מחליפה אחת לשתיהן\n' +
+                                        'ביטול = שתי מחליפות נפרדות'
+                                    );
+                                    if (oneForBoth) {
+                                        Object.entries(absencesData).forEach(function(entry) {
+                                            var id = entry[0]; var a = entry[1];
+                                            if ((a.teacher === newTeacher || a.teacher === pt) &&
+                                                String(a.day) === String(day) && a.hour === h) {
+                                                var partner = a.teacher === newTeacher ? pt : newTeacher;
+                                                var upd = { jointAbsence: true, jointPartner: partner, jointClass: bc };
+                                                if (isOnline && database) {
+                                                    database.ref('absences/' + id).update(upd);
+                                                } else {
+                                                    Object.assign(absencesData[id], upd);
+                                                }
+                                            }
+                                        });
+                                    }
+                                }, 800);
+                            })(hour, partnerTeacher, baseClass);
+                        });
+                    }
+                }
+            }
+        }
+
+        // Issue #11: Teacher availability system
+        function submitMyAvailability() {
+            var teacher = (document.getElementById('avail-teacher-select') || {}).value;
+            var dayBtn = document.querySelector('.avail-day-btn.active');
+            var selectedDay = dayBtn ? dayBtn.dataset.avday : null;
+            var selectedHours = Array.from(document.querySelectorAll('.avail-hour-btn.selected')).map(function(b) { return b.dataset.avhour; });
+            if (!teacher) { alert('נא לבחור מורה'); return; }
+            if (!selectedDay) { alert('נא לבחור יום'); return; }
+            if (selectedHours.length === 0) { alert('נא לבחור שעות'); return; }
+            if (!isOnline || !database) { alert('אין חיבור'); return; }
+            var key = teacher.replace(/[.#$\[\]\/]/g, '_') + '_' + selectedDay + '_' + Date.now();
+            database.ref('teacherAvailability/' + key).set({
+                teacher: teacher, day: parseInt(selectedDay), hours: selectedHours,
+                status: 'pending', submittedAt: Date.now()
+            }).then(function() {
+                alert('הזמינות נשלחה לאישור המנהל!');
+                document.querySelectorAll('.avail-day-btn').forEach(function(b) { b.classList.remove('active'); });
+                document.querySelectorAll('.avail-hour-btn').forEach(function(b) { b.classList.remove('selected'); });
+            }).catch(function(e) { alert('שגיאה: ' + e.message); });
+        }
+        function approveAvailability(key) {
+            if (!isOnline || !database) return;
+            database.ref('teacherAvailability/' + key + '/status').set('approved').then(function() { alert('אושר!'); });
+        }
+        function rejectAvailability(key) {
+            if (!isOnline || !database) return;
+            if (!confirm('לדחות?')) return;
+            database.ref('teacherAvailability/' + key).remove();
+        }
+        function adminSuggestAvailability() {
+            var teacher = (document.getElementById('avail-admin-teacher') || {}).value;
+            var dayVal = (document.getElementById('avail-admin-day') || {}).value;
+            if (!teacher || dayVal === '') { alert('נא לבחור מורה ויום'); return; }
+            var day = parseInt(dayVal);
+            var schedule = teacherSchedule[teacher];
+            var teachingHours = (schedule && schedule.dayHours && schedule.dayHours[day]) || [];
+            var allHrs = ['בוקר','4','5','6','7','8','9','10','סדר ערב'];
+            var freeHours = allHrs.filter(function(h) { return !teachingHours.includes(h); });
+            var suggestEl = document.getElementById('avail-admin-hours-suggestion');
+            var hoursEl = document.getElementById('avail-admin-hours-select');
+            var publishBtn = document.getElementById('avail-admin-publish-btn');
+            if (freeHours.length === 0) {
+                if (suggestEl) suggestEl.innerHTML = '<p>' + teacher + ' לא פנוי/ה</p>';
+                if (hoursEl) hoursEl.innerHTML = '';
+                if (publishBtn) publishBtn.style.display = 'none';
+                return;
+            }
+            if (suggestEl) suggestEl.innerHTML = '<p style="color:#2e7d32;">שעות פנויות ביום ' + dayNames[day] + ': ' + freeHours.join(', ') + '</p>';
+            if (hoursEl) {
+                hoursEl.innerHTML = freeHours.map(function(h) {
+                    return '<button type="button" class="hour-btn avail-admin-hour-btn" data-hour="' + h + '" onclick="this.classList.toggle(\'selected\')">' + h + '</button>';
+                }).join('');
+            }
+            if (publishBtn) publishBtn.style.display = 'block';
+        }
+        function adminPublishAvailability() {
+            var teacher = (document.getElementById('avail-admin-teacher') || {}).value;
+            var dayVal = (document.getElementById('avail-admin-day') || {}).value;
+            var selected = Array.from(document.querySelectorAll('.avail-admin-hour-btn.selected')).map(function(b) { return b.dataset.hour; });
+            if (!teacher || dayVal === '' || selected.length === 0) { alert('נא לבחור מורה, יום ושעות'); return; }
+            if (!isOnline || !database) { alert('אין חיבור'); return; }
+            var key = teacher.replace(/[.#$\[\]\/]/g, '_') + '_' + dayVal + '_adm_' + Date.now();
+            database.ref('teacherAvailability/' + key).set({
+                teacher: teacher, day: parseInt(dayVal), hours: selected,
+                status: 'approved', addedByAdmin: true, submittedAt: Date.now()
+            }).then(function() { alert('פורסם!'); });
+        }
+        function updateAvailabilityUI() {
+            var publishedEl = document.getElementById('availability-published-list');
+            var pendingEl = document.getElementById('availability-pending-list');
+            var adminSec = document.getElementById('avail-admin-section');
+            if (adminSec) adminSec.style.display = settingsUnlocked ? 'block' : 'none';
+            var all = Object.entries(availabilityData);
+            var approved = all.filter(function(e) { return e[1].status === 'approved'; });
+            var pending = all.filter(function(e) { return e[1].status === 'pending'; });
+            if (publishedEl) {
+                publishedEl.innerHTML = approved.length === 0
+                    ? '<div class="empty-state"><div class="icon">📭</div><p>אין מורים שפרסמו זמינות</p></div>'
+                    : approved.map(function(entry) {
+                        var key = entry[0]; var v = entry[1];
+                        return '<div class="avail-card">' +
+                            '<div><strong>👤 ' + v.teacher + '</strong> — יום ' + dayNames[v.day] +
+                            '<div style="color:#666;font-size:0.9rem;">שעות: ' + (v.hours||[]).join(', ') + '</div></div>' +
+                            '<span class="avail-badge approved">✅ מאושר</span></div>';
+                    }).join('');
+            }
+            if (pendingEl && settingsUnlocked) {
+                pendingEl.innerHTML = pending.length === 0
+                    ? '<p style="color:#666;">אין בקשות ממתינות</p>'
+                    : pending.map(function(entry) {
+                        var key = entry[0]; var v = entry[1];
+                        var ek = key.replace(/'/g, "\\'");
+                        return '<div class="avail-card pending">' +
+                            '<div><strong>👤 ' + v.teacher + '</strong> — יום ' + dayNames[v.day] +
+                            '<div style="color:#666;font-size:0.9rem;">שעות: ' + (v.hours||[]).join(', ') + '</div></div>' +
+                            '<div style="display:flex;gap:6px;">' +
+                            '<button class="btn btn-primary btn-sm" onclick="approveAvailability(\'' + ek + '\')">✅ אשר</button>' +
+                            '<button class="btn btn-danger btn-sm" onclick="rejectAvailability(\'' + ek + '\')">❌ דחה</button>' +
+                            '</div></div>';
+                    }).join('');
+            }
+        }
+        document.querySelectorAll('.avail-day-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.avail-day-btn').forEach(function(b) { b.classList.remove('active'); });
+                this.classList.add('active');
+            });
+        });
+        document.querySelectorAll('.avail-hour-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() { this.classList.toggle('selected'); });
         });
 
         // Check every minute if we need to lock the page
