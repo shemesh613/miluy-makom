@@ -117,6 +117,41 @@
             gap: 10px;
         }
 
+        .card.collapsible h2 {
+            cursor: pointer;
+            user-select: none;
+        }
+        .card.collapsible h2 .toggle-arrow {
+            margin-inline-start: auto;
+            transition: transform 0.3s ease;
+            font-size: 0.7em;
+            opacity: 0.55;
+        }
+        .card.collapsible.collapsed h2 {
+            margin-bottom: 0;
+        }
+        .card.collapsible.collapsed h2 .toggle-arrow {
+            transform: rotate(-90deg);
+        }
+        .card.collapsible > *:not(h2) {
+            overflow: hidden;
+            transition: max-height 0.35s ease, opacity 0.25s, margin 0.25s, padding 0.25s;
+            max-height: 5000px;
+            opacity: 1;
+        }
+        .card.collapsible.collapsed > *:not(h2) {
+            max-height: 0 !important;
+            opacity: 0;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            border-width: 0 !important;
+        }
+        .card.collapsible.collapsed {
+            padding-bottom: 22px;
+        }
+
         .card h3 {
             color: #555;
             margin: 20px 0 15px 0;
@@ -876,14 +911,14 @@
         <!-- מילוי מקום -->
         <div id="page-substitute" class="page">
             <!-- Merge suggestions - scrollable -->
-            <div id="merge-section" class="card" style="display: none; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 2px solid #2196f3;">
-                <h2 style="color: #1565c0;"><span class="icon">🔗</span> הצעות לאיחוד כיתות</h2>
+            <div id="merge-section" class="card collapsible" style="display: none; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 2px solid #2196f3;">
+                <h2 style="color: #1565c0;" onclick="toggleSection(this)"><span class="icon">🔗</span> הצעות לאיחוד כיתות <span class="toggle-arrow">▼</span></h2>
                 <div id="merge-suggestions-scroll" style="max-height: 200px; overflow-y: auto;">
                 </div>
             </div>
 
-            <div class="card">
-                <h2><span class="icon">🔴</span> חייבים למלא מקום</h2>
+            <div class="card collapsible">
+                <h2 onclick="toggleSection(this)"><span class="icon">🔴</span> חייבים למלא מקום <span class="toggle-arrow">▼</span></h2>
                 <p style="color: #666; margin-bottom: 15px;">מורים שהכיתה שלהם בטיול - חייבים למלא מקום</p>
                 <div id="required-teachers-list">
                     <div class="empty-state">
@@ -893,8 +928,8 @@
                 </div>
             </div>
 
-            <div class="card">
-                <h2><span class="icon">🟢</span> פנויים למילוי מקום</h2>
+            <div class="card collapsible">
+                <h2 onclick="toggleSection(this)"><span class="icon">🟢</span> פנויים למילוי מקום <span class="toggle-arrow">▼</span></h2>
                 <p style="color: #666; margin-bottom: 15px;">מורים שעובדים היום ופנויים בשעות מסוימות</p>
                 <div id="available-teachers-list">
                     <div class="empty-state">
@@ -942,8 +977,8 @@
                 </div>
             </div>
 
-            <div class="card">
-                <h2><span class="icon">⚫</span> לא עובדים היום</h2>
+            <div class="card collapsible collapsed">
+                <h2 onclick="toggleSection(this)"><span class="icon">⚫</span> לא עובדים היום <span class="toggle-arrow">▼</span></h2>
                 <p style="color: #666; margin-bottom: 15px;">מורים שלא עובדים היום - פחות סיכוי שיעזרו</p>
                 <div id="not-working-teachers-list">
                     <div class="empty-state">
@@ -2089,6 +2124,23 @@
 
         // Set current day active
         document.querySelector(`.day-btn[data-day="${currentDay}"]`).classList.add('active');
+
+        // Collapsible sections (חייבים/פנויים/לא עובדים/הצעות איחוד)
+        function toggleSection(h2) {
+            const card = h2.closest('.card.collapsible');
+            if (!card) return;
+            card.classList.toggle('collapsed');
+            const key = 'collapsed-' + (card.id || h2.textContent.trim().replace(/\s+/g, '_'));
+            localStorage.setItem(key, card.classList.contains('collapsed') ? '1' : '0');
+        }
+        document.querySelectorAll('.card.collapsible').forEach(card => {
+            const h2 = card.querySelector('h2');
+            if (!h2) return;
+            const key = 'collapsed-' + (card.id || h2.textContent.trim().replace(/\s+/g, '_'));
+            const saved = localStorage.getItem(key);
+            if (saved === '1') card.classList.add('collapsed');
+            else if (saved === '0') card.classList.remove('collapsed');
+        });
 
         // Navigation
         document.querySelectorAll('.nav-tab').forEach(tab => {
