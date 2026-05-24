@@ -157,35 +157,37 @@ function firebasePut(path, data) {
 
 async function checkAndSendDailySummary() {
     const now = new Date();
-    const utcHour = now.getUTCHours();
 
-    // Israel time: UTC+2 (winter) / UTC+3 (summer)
-    const israelHour = (utcHour + 2) % 24;
+    // Proper Israel time (handles DST UTC+2 winter / UTC+3 summer)
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jerusalem', hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', weekday: 'short'
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(now).map(p => [p.type, p.value]));
+    const israelHour = parseInt(parts.hour, 10);
+    const today = `${parts.year}-${parts.month}-${parts.day}`;
+    const israelDay = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(parts.weekday);
 
-    // Only send after 22:00 Israel time (20:00 UTC)
+    // Only send after 22:00 Israel time
     if (israelHour < 22) return;
 
-    // Check if already sent today (using Israel date)
-    const israelDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const today = israelDate.toISOString().slice(0, 10);
     const sentFlag = await firebaseGet('/summaryFlags/' + today);
     if (sentFlag) {
         console.log('Daily summary already sent today');
         return;
     }
 
-    const israelDay = israelDate.getUTCDay();
     const tomorrow = (israelDay + 1) % 7;
-
-    // At 22:00+ → send TOMORROW's info
     const targetDay = tomorrow;
     const label = 'למחר';
 
+    // Skip if tomorrow is Shabbat (no school on Saturday)
     if (targetDay === 6) {
         console.log('Tomorrow is Shabbat, skipping summary');
         return;
     }
-    if (israelDay === 6) return;
+    // NOTE: Saturday night (after Shabbat ends, 22:00+) DOES send Sunday's summary.
 
     console.log(`Sending daily summary ${label} (day ${targetDay})...`);
 
