@@ -821,6 +821,163 @@
             margin-right: 8px;
         }
 
+        /* ============ WOW layer ============ */
+
+        /* Floating gold & indigo aurora orbs */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.5;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::before {
+            width: 480px; height: 480px;
+            background: radial-gradient(circle, rgba(201, 169, 97, 0.30), transparent 65%);
+            top: -140px; left: -120px;
+            animation: floatA 16s ease-in-out infinite alternate;
+        }
+        body::after {
+            width: 560px; height: 560px;
+            background: radial-gradient(circle, rgba(59, 86, 166, 0.38), transparent 65%);
+            bottom: -180px; right: -140px;
+            animation: floatB 20s ease-in-out infinite alternate;
+        }
+        @keyframes floatA { to { transform: translate(60px, 40px) scale(1.1); } }
+        @keyframes floatB { to { transform: translate(-70px, -50px) scale(1.05); } }
+
+        .container { position: relative; z-index: 1; }
+
+        /* Shimmering gold title */
+        header h1 {
+            background-size: 220% auto;
+            animation: shimmer 7s linear infinite;
+        }
+        @keyframes shimmer { to { background-position: 220% center; } }
+
+        .hero-date {
+            margin-top: 10px;
+            color: rgba(230, 207, 156, 0.85) !important;
+            font-size: 0.95rem !important;
+            letter-spacing: 1.5px !important;
+        }
+
+        /* Floating glass navigation dock */
+        .top-bar {
+            position: sticky;
+            top: 12px;
+            z-index: 200;
+            background: rgba(13, 20, 40, 0.74);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(201, 169, 97, 0.28);
+            border-radius: 24px;
+            padding: 14px 16px 6px;
+            margin-bottom: 26px;
+            box-shadow: 0 16px 40px rgba(5, 8, 20, 0.45);
+        }
+        .top-bar .day-selector { margin-bottom: 12px; }
+        .top-bar .nav-tabs { margin-bottom: 8px; }
+
+        /* Branded splash screen */
+        #splash {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(700px 400px at 50% 30%, rgba(201, 169, 97, 0.12), transparent 60%),
+                linear-gradient(160deg, #0d1428 0%, #101a36 55%, #0b1020 100%);
+            animation: splashOut 0.8s ease 1.7s forwards;
+        }
+        @keyframes splashOut { to { opacity: 0; visibility: hidden; } }
+        .splash-inner {
+            text-align: center;
+            animation: splashIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes splashIn { from { opacity: 0; transform: translateY(24px) scale(0.96); } }
+        .splash-ring {
+            width: 92px; height: 92px;
+            margin: 0 auto 22px;
+            border-radius: 50%;
+            border: 2px solid rgba(201, 169, 97, 0.25);
+            border-top-color: #e6cf9c;
+            animation: spin 1.1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .splash-inner h1 {
+            font-family: 'Frank Ruhl Libre', 'Heebo', serif;
+            font-weight: 900;
+            font-size: 2.2rem;
+            background: linear-gradient(120deg, #f3e3b8, #c9a961, #f7ecd2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .splash-inner p {
+            color: rgba(240, 236, 226, 0.6);
+            letter-spacing: 5px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        /* Cards: staggered entrance + gentle hover lift */
+        .card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 24px 54px rgba(8, 12, 28, 0.42); }
+        .page.active .card { animation: cardIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .page.active .card:nth-child(2) { animation-delay: 0.06s; }
+        .page.active .card:nth-child(3) { animation-delay: 0.12s; }
+        .page.active .card:nth-child(4) { animation-delay: 0.18s; }
+        .page.active .card:nth-child(5) { animation-delay: 0.24s; }
+        .page.active .card:nth-child(6) { animation-delay: 0.30s; }
+        .page.active .card:nth-child(7) { animation-delay: 0.36s; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(18px); } }
+
+        /* Section icon chips */
+        .card h2 .icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            font-size: 1.15rem;
+            background: linear-gradient(145deg, rgba(201, 169, 97, 0.18), rgba(201, 169, 97, 0.05));
+            border: 1px solid rgba(201, 169, 97, 0.35);
+            flex-shrink: 0;
+        }
+
+        /* Button shine sweep */
+        .btn-primary {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0; height: 100%;
+            width: 40%;
+            right: -60%;
+            background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.30), transparent);
+            transform: skewX(-20deg);
+            transition: right 0.55s ease;
+            pointer-events: none;
+        }
+        .btn-primary:hover::after { right: 120%; }
+
+        /* Stat boxes come alive */
+        .stat-box { transition: transform 0.3s, box-shadow 0.3s; }
+        .stat-box:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 16px 34px rgba(8, 12, 28, 0.4); }
+
+        /* Accessibility: no motion → no splash, no animations */
+        @media (prefers-reduced-motion: reduce) {
+            #splash { display: none; }
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
+
         /* Publication table */
         .publish-table {
             width: 100%;
@@ -874,10 +1031,20 @@
     </style>
 </head>
 <body>
+    <!-- Branded splash screen (pure CSS, fades out automatically) -->
+    <div id="splash">
+        <div class="splash-inner">
+            <div class="splash-ring"></div>
+            <h1>מערכת מילוי מקום</h1>
+            <p>ת"ת &middot; ניהול חכם</p>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>מערכת מילוי מקום</h1>
             <p>ניהול היעדרויות ומילויי מקום · ת"ת</p>
+            <p class="hero-date" id="hero-date"></p>
         </header>
 
         <!-- Trip indicator -->
@@ -886,25 +1053,28 @@
             <span id="trip-indicator-text" style="font-weight: bold; color: #856404;"></span>
         </div>
 
-        <!-- Day selector -->
-        <div class="day-selector">
-            <button class="day-btn" data-day="6">שבת</button>
-            <button class="day-btn" data-day="0">ראשון</button>
-            <button class="day-btn" data-day="1">שני</button>
-            <button class="day-btn" data-day="2">שלישי</button>
-            <button class="day-btn" data-day="3">רביעי</button>
-            <button class="day-btn" data-day="4">חמישי</button>
-            <button class="day-btn" data-day="5">שישי</button>
-        </div>
+        <!-- Floating glass navigation dock -->
+        <div class="top-bar">
+            <!-- Day selector -->
+            <div class="day-selector">
+                <button class="day-btn" data-day="6">שבת</button>
+                <button class="day-btn" data-day="0">ראשון</button>
+                <button class="day-btn" data-day="1">שני</button>
+                <button class="day-btn" data-day="2">שלישי</button>
+                <button class="day-btn" data-day="3">רביעי</button>
+                <button class="day-btn" data-day="4">חמישי</button>
+                <button class="day-btn" data-day="5">שישי</button>
+            </div>
 
-        <nav class="nav-tabs">
-            <button class="nav-tab active" data-page="home">🏠 דף הבית</button>
-            <button class="nav-tab" data-page="report">📝 דיווח היעדרות</button>
-            <button class="nav-tab" data-page="trip">🚌 טיולים</button>
-            <button class="nav-tab" data-page="substitute">🔄 מילוי מקום</button>
-            <button class="nav-tab" data-page="suggestions">📖 הנחיות</button>
-            <button class="nav-tab" data-page="settings">⚙️ הגדרות</button>
-        </nav>
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-page="home">🏠 דף הבית</button>
+                <button class="nav-tab" data-page="report">📝 דיווח היעדרות</button>
+                <button class="nav-tab" data-page="trip">🚌 טיולים</button>
+                <button class="nav-tab" data-page="substitute">🔄 מילוי מקום</button>
+                <button class="nav-tab" data-page="suggestions">📖 הנחיות</button>
+                <button class="nav-tab" data-page="settings">⚙️ הגדרות</button>
+            </nav>
+        </div>
 
         <!-- דף הבית -->
         <div id="page-home" class="page active">
@@ -4451,6 +4621,12 @@
                 updateLockedNotice();
             }
         }, 60000);
+
+        // Hero date line
+        (function() {
+            const el = document.getElementById('hero-date');
+            if (el) el.textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        })();
     </script>
 </body>
 </html>
