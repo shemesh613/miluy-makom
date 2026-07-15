@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת מילוי מקום - ת"ת (v2.9)</title>
+    <title>מערכת מילוי מקום - ת"ת (v3.0)</title>
     <style>
         * {
             margin: 0;
@@ -732,6 +732,55 @@
             align-items: center;
             margin-right: 8px;
         }
+
+        /* Publication table */
+        .publish-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1rem;
+        }
+        .publish-table th {
+            background: #673ab7;
+            color: white;
+            padding: 10px 8px;
+            text-align: right;
+        }
+        .publish-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: right;
+        }
+        .publish-table tr:nth-child(even) td { background: #f5f0fa; }
+        .publish-table .status-assigned { color: #2e7d32; font-weight: bold; }
+        .publish-table .status-merged { color: #1565c0; font-weight: bold; }
+        .publish-table .status-unassigned { color: #c62828; font-weight: bold; }
+        .publish-title {
+            text-align: center;
+            color: #4527a0;
+            margin-bottom: 4px;
+        }
+        .publish-subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 14px;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #publish-table-modal, #publish-table-modal * { visibility: visible; }
+            #publish-table-modal .no-print, #publish-table-modal .no-print * { visibility: hidden; display: none; }
+            #publish-table-modal {
+                position: absolute !important;
+                top: 0; left: 0; right: 0;
+                background: white !important;
+                overflow: visible !important;
+            }
+            #publish-table-modal > div {
+                margin: 0 auto !important;
+                box-shadow: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -994,6 +1043,28 @@
                     <div class="empty-state">
                         <div class="icon">📝</div>
                         <p>אין היעדרויות לשיבוץ</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="text-align: center; background: linear-gradient(135deg, #ede7f6 0%, #d1c4e9 100%); border: 2px solid #673ab7;">
+                <button class="btn btn-primary" onclick="openPublishTable()" style="font-size: 1.1rem; padding: 14px 28px; background: #673ab7;">
+                    📋 טבלה לפרסום
+                </button>
+                <p style="color: #666; margin-top: 8px; font-size: 0.85rem;">טבלה מסודרת של שיבוצי היום — להעתקה לווטסאפ או להדפסה</p>
+            </div>
+
+            <!-- Publish table modal -->
+            <div id="publish-table-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; overflow-y:auto;">
+                <div style="max-width:640px; margin:30px auto; background:white; border-radius:16px; padding:24px; direction:rtl;">
+                    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h2 style="margin:0;">📋 טבלה לפרסום</h2>
+                        <button onclick="closePublishTable()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+                    </div>
+                    <div id="publish-table-body"></div>
+                    <div class="no-print" style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="copyPublishText()" style="background:#25D366; flex:1;">💬 העתק לוואטסאפ</button>
+                        <button class="btn btn-primary" onclick="printPublishTable()" style="background:#607d8b; flex:1;">🖨️ הדפס</button>
                     </div>
                 </div>
             </div>
@@ -3634,6 +3705,118 @@
                     if (select) select.value = a.substitute;
                 }
             });
+        }
+
+        // === Publication table (טבלה לפרסום) ===
+        function getPublishRows() {
+            const trips = tripClassesData[currentDay] || [];
+            const tripClassNames = trips.map(t => typeof t === 'object' ? t.class : t);
+            const hourOrder = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+            const rows = [];
+            Object.values(absencesData).forEach(a => {
+                if (a.day !== currentDay) return;
+                const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return;
+                let status, statusType;
+                if (a.merged) {
+                    const mergedSubs = parallelClasses[a.mergedClass];
+                    const subsLabel = mergedSubs ? mergedSubs.join('+') : (a.mergedClass || '');
+                    const isDirect = a.directMerge !== undefined
+                        ? a.directMerge
+                        : (mergedSubs ? mergedSubs.includes(classAtHour || '') : false);
+                    status = isDirect
+                        ? `איחוד כיתות ${subsLabel} — ${a.substitute || ''}`
+                        : `${a.substitute || ''} (איחוד ${subsLabel}${a.stayingTeacher ? ' אצל ' + a.stayingTeacher : ''})`;
+                    statusType = 'merged';
+                } else if (a.substitute && a.substitute !== '') {
+                    status = a.substitute;
+                    statusType = 'assigned';
+                } else {
+                    status = 'טרם שובץ';
+                    statusType = 'unassigned';
+                }
+                rows.push({ hour: a.hour, teacher: a.teacher, cls: classAtHour || '', status, statusType, forNextWeek: !!a.forNextWeek });
+            });
+            rows.sort((x, y) => hourOrder.indexOf(String(x.hour)) - hourOrder.indexOf(String(y.hour)));
+            return { rows, tripClassNames };
+        }
+
+        function openPublishTable() {
+            const { rows, tripClassNames } = getPublishRows();
+            const body = document.getElementById('publish-table-body');
+            const dateStr = new Date().toLocaleDateString('he-IL');
+            const tripsLine = tripClassNames.length > 0
+                ? `<div class="publish-subtitle">🚌 בטיול היום: כיתות ${tripClassNames.join(', ')}</div>`
+                : '';
+            if (rows.length === 0) {
+                body.innerHTML = `
+                    <h2 class="publish-title">מילוי מקום — יום ${dayNames[currentDay]}</h2>
+                    ${tripsLine}
+                    <div class="empty-state"><div class="icon">🎉</div><p>אין היעדרויות היום!</p></div>`;
+            } else {
+                body.innerHTML = `
+                    <h2 class="publish-title">מילוי מקום — יום ${dayNames[currentDay]}</h2>
+                    <div class="publish-subtitle">${dateStr}</div>
+                    ${tripsLine}
+                    <table class="publish-table">
+                        <thead><tr><th>שעה</th><th>מורה חסר</th><th>כיתה</th><th>ממלא מקום</th></tr></thead>
+                        <tbody>
+                        ${rows.map(r => `
+                            <tr>
+                                <td>${r.hour}${r.forNextWeek ? ' 📅' : ''}</td>
+                                <td>${r.teacher}</td>
+                                <td>${r.cls || '—'}</td>
+                                <td class="status-${r.statusType}">${r.status}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            }
+            document.getElementById('publish-table-modal').style.display = 'block';
+        }
+
+        function closePublishTable() {
+            document.getElementById('publish-table-modal').style.display = 'none';
+        }
+
+        function buildPublishText() {
+            const { rows, tripClassNames } = getPublishRows();
+            let text = `📋 *מילוי מקום — יום ${dayNames[currentDay]}*\n`;
+            if (tripClassNames.length > 0) text += `🚌 בטיול היום: כיתות ${tripClassNames.join(', ')}\n`;
+            text += '━━━━━━━━━━━━━━━\n';
+            if (rows.length === 0) {
+                text += '🎉 אין היעדרויות היום!';
+                return text;
+            }
+            rows.forEach(r => {
+                const icon = r.statusType === 'assigned' ? '✅' : r.statusType === 'merged' ? '🔗' : '❌';
+                text += `${icon} שעה ${r.hour} | ${r.cls ? 'כיתה ' + r.cls + ' | ' : ''}${r.teacher} ← *${r.status}*\n`;
+            });
+            return text;
+        }
+
+        function copyPublishText() {
+            const text = buildPublishText();
+            const done = () => alert('✅ הטבלה הועתקה! אפשר להדביק בווטסאפ.');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+            } else {
+                fallbackCopy(text, done);
+            }
+        }
+
+        function fallbackCopy(text, done) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) { alert('לא ניתן להעתיק אוטומטית'); }
+            document.body.removeChild(ta);
+        }
+
+        function printPublishTable() {
+            window.print();
         }
 
         // Update suggestions page
