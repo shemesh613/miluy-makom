@@ -4,7 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.0)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --navy-1: #101830;
+            --navy-2: #1a2547;
+            --navy-3: #2c3c6e;
+            --gold: #c9a961;
+            --gold-light: #e6cf9c;
+            --gold-deep: #b08d3f;
+            --ink: #1c2333;
+            --muted: #6e7482;
+            --card-bg: #fffdf9;
+            --line-gold: rgba(201, 169, 97, 0.28);
+            --shadow-card: 0 18px 44px rgba(8, 12, 28, 0.35);
+        }
         * {
             margin: 0;
             padding: 0;
@@ -12,11 +28,21 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Heebo', 'Segoe UI', Tahoma, Arial, sans-serif;
+            background:
+                radial-gradient(1100px 500px at 85% -5%, rgba(201, 169, 97, 0.16), transparent 60%),
+                radial-gradient(900px 600px at -10% 20%, rgba(59, 86, 166, 0.25), transparent 55%),
+                linear-gradient(160deg, #0d1428 0%, #101a36 45%, #0b1020 100%);
+            background-attachment: fixed;
             min-height: 100vh;
             direction: rtl;
+            color: var(--ink);
         }
+
+        ::selection { background: rgba(201, 169, 97, 0.35); }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(201, 169, 97, 0.45); border-radius: 999px; }
 
         .container {
             max-width: 900px;
@@ -26,19 +52,36 @@
 
         header {
             text-align: center;
-            padding: 30px 0;
+            padding: 38px 0 26px;
             color: white;
         }
 
         header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            font-family: 'Frank Ruhl Libre', 'Heebo', serif;
+            font-size: 2.7rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            background: linear-gradient(120deg, #f3e3b8 0%, #c9a961 45%, #f7ecd2 90%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         header p {
-            font-size: 1.2rem;
-            opacity: 0.9;
+            font-size: 1.05rem;
+            font-weight: 300;
+            letter-spacing: 3px;
+            color: rgba(240, 236, 226, 0.72);
+        }
+
+        header::after {
+            content: '';
+            display: block;
+            width: 90px;
+            height: 2px;
+            margin: 18px auto 0;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
 
         /* Day selector */
@@ -52,24 +95,28 @@
 
         .day-btn {
             padding: 10px 20px;
-            background: rgba(255,255,255,0.2);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 20px;
-            color: white;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(201, 169, 97, 0.35);
+            border-radius: 999px;
+            color: #ece5d3;
+            font-family: inherit;
             font-size: 1rem;
             cursor: pointer;
             transition: all 0.3s;
+            backdrop-filter: blur(6px);
         }
 
         .day-btn:hover {
-            background: rgba(255,255,255,0.3);
+            background: rgba(201, 169, 97, 0.16);
+            border-color: rgba(201, 169, 97, 0.7);
         }
 
         .day-btn.active {
-            background: white;
-            color: #667eea;
-            font-weight: bold;
-            border-color: white;
+            background: linear-gradient(135deg, var(--gold-light), var(--gold));
+            color: var(--navy-1);
+            font-weight: 700;
+            border-color: transparent;
+            box-shadow: 0 6px 18px rgba(201, 169, 97, 0.35);
         }
 
         .nav-tabs {
@@ -82,35 +129,43 @@
 
         .nav-tab {
             padding: 12px 24px;
-            background: rgba(255,255,255,0.2);
-            border: none;
-            border-radius: 25px;
-            color: white;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 999px;
+            color: #e8e4d8;
+            font-family: inherit;
             font-size: 1rem;
             cursor: pointer;
             transition: all 0.3s;
+            backdrop-filter: blur(6px);
         }
 
         .nav-tab:hover {
-            background: rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(201, 169, 97, 0.5);
         }
 
         .nav-tab.active {
-            background: white;
-            color: #667eea;
-            font-weight: bold;
+            background: linear-gradient(135deg, var(--gold-light), var(--gold));
+            color: var(--navy-1);
+            font-weight: 700;
+            border-color: transparent;
+            box-shadow: 0 6px 18px rgba(201, 169, 97, 0.35);
         }
 
         .card {
-            background: white;
-            border-radius: 20px;
+            background: var(--card-bg);
+            border-radius: 22px;
             padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 22px;
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line-gold);
         }
 
         .card h2 {
-            color: #333;
+            font-family: 'Frank Ruhl Libre', 'Heebo', serif;
+            font-weight: 700;
+            color: var(--navy-2);
             margin-bottom: 20px;
             display: flex;
             align-items: center;
@@ -166,20 +221,24 @@
         }
 
         .stat-box {
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            background: linear-gradient(150deg, #16203e 0%, #0f1730 100%);
+            border: 1px solid rgba(201, 169, 97, 0.32);
             padding: 20px;
-            border-radius: 15px;
+            border-radius: 18px;
             text-align: center;
+            box-shadow: 0 10px 26px rgba(8, 12, 28, 0.28);
         }
 
         .stat-box .number {
+            font-family: 'Frank Ruhl Libre', serif;
             font-size: 2.5rem;
-            font-weight: bold;
-            color: #667eea;
+            font-weight: 700;
+            color: var(--gold-light);
         }
 
         .stat-box .label {
-            color: #666;
+            color: rgba(232, 226, 210, 0.72);
+            letter-spacing: 0.5px;
             margin-top: 5px;
         }
 
@@ -199,10 +258,20 @@
         .form-group textarea {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border: 1px solid #ddd5c2;
+            background: #fffefb;
+            border-radius: 12px;
+            font-family: inherit;
             font-size: 1rem;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.18);
         }
 
         .hours-selector {
@@ -215,46 +284,53 @@
             min-width: 50px;
             height: 50px;
             padding: 0 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            background: white;
+            border: 1px solid #ddd5c2;
+            border-radius: 12px;
+            background: #fffefb;
+            font-family: inherit;
             font-size: 1rem;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.25s;
         }
 
         .hour-btn:hover, .class-btn:hover {
-            border-color: #667eea;
+            border-color: var(--gold);
+            box-shadow: 0 3px 10px rgba(201, 169, 97, 0.25);
         }
 
         .hour-btn.selected, .class-btn.selected {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+            background: linear-gradient(135deg, var(--navy-2), var(--navy-3));
+            color: #f3ecd9;
+            border-color: var(--navy-2);
+            box-shadow: 0 5px 14px rgba(16, 24, 48, 0.35);
         }
 
         .class-btn.selected {
-            background: #dc3545;
-            border-color: #dc3545;
+            background: linear-gradient(135deg, #a63d40, #8c2f33);
+            border-color: #8c2f33;
         }
 
         .btn {
             padding: 15px 30px;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
+            font-family: inherit;
+            font-weight: 600;
+            letter-spacing: 0.3px;
             font-size: 1.1rem;
             cursor: pointer;
             transition: all 0.3s;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--navy-2) 0%, var(--navy-3) 100%);
+            color: #f3ecd9;
+            box-shadow: 0 6px 16px rgba(16, 24, 48, 0.3);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 10px 26px rgba(201, 169, 97, 0.35);
         }
 
         .btn-primary:disabled {
@@ -283,9 +359,9 @@
             align-items: center;
             gap: 10px;
             padding: 15px;
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-radius: 10px;
+            background: #fdf6e3;
+            border: 1px solid rgba(201, 169, 97, 0.55);
+            border-radius: 12px;
         }
 
         .checkbox-group input[type="checkbox"] {
@@ -307,13 +383,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
+            padding: 16px;
+            background: #faf8f3;
+            border: 1px solid #eee7d8;
+            border-radius: 14px;
             margin-bottom: 10px;
-            border-right: 4px solid #667eea;
+            border-right: 4px solid var(--navy-3);
             flex-wrap: wrap;
             gap: 10px;
+            box-shadow: 0 3px 10px rgba(28, 35, 51, 0.05);
         }
 
         .absence-item.reported {
@@ -395,13 +473,17 @@
         }
 
         .connection-status.online {
-            background: #d4edda;
-            color: #155724;
+            background: rgba(20, 48, 36, 0.9);
+            color: #b7e4c7;
+            border: 1px solid rgba(183, 228, 199, 0.3);
+            backdrop-filter: blur(6px);
         }
 
         .connection-status.offline {
-            background: #f8d7da;
-            color: #721c24;
+            background: rgba(74, 22, 28, 0.9);
+            color: #f2c4ca;
+            border: 1px solid rgba(242, 196, 202, 0.3);
+            backdrop-filter: blur(6px);
         }
 
         .connection-status .dot {
@@ -423,24 +505,26 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
+            padding: 16px;
+            background: #faf8f3;
+            border: 1px solid #eee7d8;
+            border-radius: 14px;
             margin-bottom: 10px;
-            border-right: 4px solid #28a745;
+            border-right: 4px solid #2e7d5b;
             flex-wrap: wrap;
             gap: 10px;
+            box-shadow: 0 3px 10px rgba(28, 35, 51, 0.05);
         }
 
         .teacher-card.required {
-            border-right-color: #dc3545;
-            background: #fff5f5;
+            border-right-color: #a63d40;
+            background: #fdf6f4;
         }
 
         .teacher-card.not-working {
-            border-right-color: #6c757d;
-            background: #f0f0f0;
-            opacity: 0.7;
+            border-right-color: #9aa0ab;
+            background: #f4f3f0;
+            opacity: 0.72;
         }
 
         .teacher-card .teacher-name {
@@ -462,15 +546,15 @@
         }
 
         .badge-required {
-            background: #dc3545;
+            background: linear-gradient(135deg, #a63d40, #8c2f33);
         }
 
         .badge-optional {
-            background: #28a745;
+            background: linear-gradient(135deg, #2e7d5b, #226548);
         }
 
         .badge-not-working {
-            background: #6c757d;
+            background: #9aa0ab;
         }
 
         .substitute-select {
@@ -488,9 +572,9 @@
         }
 
         .trip-notice {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-radius: 10px;
+            background: #fdf6e3;
+            border: 1px solid rgba(201, 169, 97, 0.55);
+            border-radius: 12px;
             padding: 15px;
             margin-bottom: 20px;
             display: flex;
@@ -541,7 +625,7 @@
             width: 24px;
             height: 24px;
             border-radius: 50%;
-            background: #667eea;
+            background: var(--navy-2);
             color: white;
             display: flex;
             align-items: center;
@@ -553,7 +637,7 @@
         .honor-item.silver .rank { background: linear-gradient(135deg, #c0c0c0, #a8a8a8); }
         .honor-item.bronze .rank { background: linear-gradient(135deg, #cd7f32, #b87333); }
         .honor-item .name { font-weight: 500; color: #333; }
-        .honor-item .points { color: #667eea; font-size: 0.85rem; font-weight: bold; }
+        .honor-item .points { color: var(--gold-deep); font-size: 0.85rem; font-weight: bold; }
 
         .add-teacher-form select,
         .add-teacher-form input {
@@ -585,12 +669,14 @@
 
         /* Locked state */
         .locked-notice {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
+            background: linear-gradient(135deg, #7a2e33 0%, #571f26 100%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #f5e9e6;
+            padding: 22px;
+            border-radius: 18px;
             text-align: center;
             margin-bottom: 20px;
+            box-shadow: 0 12px 30px rgba(60, 16, 22, 0.35);
         }
 
         .locked-notice .lock-icon {
@@ -624,9 +710,11 @@
         }
 
         .modal-box {
-            background: white;
+            background: var(--card-bg);
             padding: 30px;
             border-radius: 20px;
+            border: 1px solid var(--line-gold);
+            box-shadow: var(--shadow-card);
             text-align: center;
             max-width: 350px;
             width: 90%;
@@ -740,23 +828,25 @@
             font-size: 1rem;
         }
         .publish-table th {
-            background: #673ab7;
-            color: white;
-            padding: 10px 8px;
+            background: var(--navy-2);
+            color: var(--gold-light);
+            letter-spacing: 0.5px;
+            padding: 11px 8px;
             text-align: right;
         }
         .publish-table td {
             padding: 10px 8px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid #eee7d8;
             text-align: right;
         }
-        .publish-table tr:nth-child(even) td { background: #f5f0fa; }
-        .publish-table .status-assigned { color: #2e7d32; font-weight: bold; }
+        .publish-table tr:nth-child(even) td { background: #faf7f0; }
+        .publish-table .status-assigned { color: #2e7d5b; font-weight: bold; }
         .publish-table .status-merged { color: #1565c0; font-weight: bold; }
-        .publish-table .status-unassigned { color: #c62828; font-weight: bold; }
+        .publish-table .status-unassigned { color: #a63d40; font-weight: bold; }
         .publish-title {
+            font-family: 'Frank Ruhl Libre', serif;
             text-align: center;
-            color: #4527a0;
+            color: var(--navy-2);
             margin-bottom: 4px;
         }
         .publish-subtitle {
@@ -786,12 +876,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>📚 מערכת מילוי מקום</h1>
-            <p>ניהול היעדרויות ומילויי מקום - ת"ת</p>
+            <h1>מערכת מילוי מקום</h1>
+            <p>ניהול היעדרויות ומילויי מקום · ת"ת</p>
         </header>
 
         <!-- Trip indicator -->
-        <div id="trip-indicator" style="display: none; background: #fff3cd; border: 2px solid #ffc107; border-radius: 10px; padding: 10px 15px; margin-bottom: 15px; text-align: center;">
+        <div id="trip-indicator" style="display: none; background: #fdf6e3; border: 1px solid rgba(201, 169, 97, 0.6); border-radius: 12px; padding: 10px 15px; margin-bottom: 15px; text-align: center;">
             <span style="font-size: 1.2rem;">🚌</span>
             <span id="trip-indicator-text" style="font-weight: bold; color: #856404;"></span>
         </div>
@@ -960,7 +1050,7 @@
         <!-- מילוי מקום -->
         <div id="page-substitute" class="page">
             <!-- Merge suggestions - scrollable -->
-            <div id="merge-section" class="card collapsible" style="display: none; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 2px solid #2196f3;">
+            <div id="merge-section" class="card collapsible" style="display: none; background: linear-gradient(135deg, #f2f6fb 0%, #e6edf7 100%); border: 1px solid rgba(21, 101, 192, 0.3);">
                 <h2 style="color: #1565c0;" onclick="toggleSection(this)"><span class="icon">🔗</span> הצעות לאיחוד כיתות <span class="toggle-arrow">▼</span></h2>
                 <div id="merge-suggestions-scroll" style="max-height: 200px; overflow-y: auto;">
                 </div>
@@ -997,7 +1087,7 @@
                 </div>
             </div>
 
-            <div class="card" style="text-align: center; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
+            <div class="card" style="text-align: center; background: linear-gradient(135deg, #f3f7f2 0%, #e7efe4 100%); border: 1px solid rgba(46, 125, 91, 0.35);">
                 <button class="btn btn-primary" onclick="openMassSend()" style="font-size: 1.1rem; padding: 14px 28px; background: #4caf50;">
                     📨 שלח הודעה לכל הפנויים (שעובדים היום)
                 </button>
@@ -1047,7 +1137,7 @@
                 </div>
             </div>
 
-            <div class="card" style="text-align: center; background: linear-gradient(135deg, #ede7f6 0%, #d1c4e9 100%); border: 2px solid #673ab7;">
+            <div class="card" style="text-align: center; background: linear-gradient(135deg, #f5f3f9 0%, #ebe7f3 100%); border: 1px solid rgba(69, 39, 160, 0.28);">
                 <button class="btn btn-primary" onclick="openPublishTable()" style="font-size: 1.1rem; padding: 14px 28px; background: #673ab7;">
                     📋 טבלה לפרסום
                 </button>
@@ -1069,7 +1159,7 @@
                 </div>
             </div>
 
-            <div class="card" style="text-align: center; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
+            <div class="card" style="text-align: center; background: linear-gradient(135deg, #f3f7f2 0%, #e7efe4 100%); border: 1px solid rgba(46, 125, 91, 0.35);">
                 <h2 style="color: #2e7d32; justify-content: center;"><span class="icon">✅</span> סיימתי שיבוץ להיום</h2>
                 <p style="color: #666; margin-bottom: 15px;">לחץ כאן כדי להפסיק את התזכורות בווטסאפ להיום</p>
                 <div id="dismiss-status" style="margin-bottom: 15px;"></div>
@@ -3387,7 +3477,7 @@
                 // Get class info - from saved data or from schedule
                 const classAtHour = a.classAtHour || (currentHour ? getTeacherClassAtHour(a.teacher, currentDay, currentHour) : null);
                 const classDisplay = classAtHour ? ` | כיתה ${classAtHour}` : '';
-                const statusColor = a.substitute ? '#28a745' : a.merged ? '#2196f3' : '#667eea';
+                const statusColor = a.substitute ? '#2e7d5b' : a.merged ? '#1565c0' : '#c9a961';
                 // Merge details (direct = one teacher unites the classes; adjacent = two roles)
                 const mergedSubs = a.merged ? parallelClasses[a.mergedClass] : null;
                 const subsLabel = mergedSubs ? mergedSubs.join('+') : ('כיתות ' + (a.mergedClass || a.mergedWith || ''));
