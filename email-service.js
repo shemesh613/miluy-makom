@@ -198,11 +198,26 @@ async function checkAndSendDailySummary() {
     const absences = await firebaseGet('/absences');
     const dayName = DAY_NAMES[targetDay];
 
+    // Trip classes for the target day - absences of a class that is on a trip
+    // don't need a substitute and must NOT be counted as "לא שובצו"
+    const allTrips = await firebaseGet('/tripClasses');
+    const dayTrips = (allTrips && allTrips[targetDay]) || [];
+    const tripClassNames = (Array.isArray(dayTrips) ? dayTrips : Object.values(dayTrips))
+        .map(t => (t && typeof t === 'object') ? t.class : t)
+        .filter(Boolean);
+    const isClassOnTrip = cls => {
+        if (!cls || tripClassNames.length === 0) return false;
+        if (tripClassNames.includes(cls)) return true;
+        return tripClassNames.includes(String(cls).replace(/[12]/g, ''));
+    };
+
     const assigned = [], unassigned = [], merged = [];
     if (absences) {
         for (const key in absences) {
             const a = absences[key];
             if (a.day !== targetDay) continue;
+            if (a.forNextWeek) continue; // report for NEXT week's occurrence - not tomorrow
+            if (a.classAtHour && isClassOnTrip(a.classAtHour)) continue; // class on trip - no substitute needed
             if (a.merged) merged.push({ teacher: a.teacher, hour: a.hour });
             else if (a.substitute && a.substitute !== '') assigned.push({ teacher: a.teacher, hour: a.hour, substitute: a.substitute });
             else unassigned.push({ teacher: a.teacher, hour: a.hour });
@@ -289,9 +304,22 @@ async function checkAndRunWeeklyCleanup() {
     // Delete current data
     await firebaseDelete('/absences');
     await firebaseDelete('/tripClasses');
+    await firebaseDelete('/tripExemptions');
     await firebaseDelete('/reminderDismissed');
     await firebaseDelete('/summaryFlags');
     console.log('Deleted old data');
+
+    // Restore reports made for NEXT week - they become current-week reports
+    if (absences) {
+        for (const key in absences) {
+            const a = absences[key];
+            if (!a.forNextWeek) continue;
+            const restored = { ...a };
+            delete restored.forNextWeek;
+            await firebasePut(`/absences/${key}`, restored);
+            console.log(`Restored next-week report: ${a.teacher} day ${a.day} hour ${a.hour}`);
+        }
+    }
 
     // Restore permanent absences
     const perms = await firebaseGet('/permanentAbsences');

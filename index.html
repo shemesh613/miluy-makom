@@ -1752,6 +1752,7 @@
         const SETTINGS_PASSWORD = '123456';
         const LOCKOUT_HOUR = 22;
         const LOCKOUT_MINUTE = 30;
+        const NEXT_WEEK_OPEN_HOUR = 18; // From this hour, reporting for the same day NEXT week opens
 
         // Desktop notifications tracking
         let previousAbsenceKeys = new Set();
@@ -1915,14 +1916,15 @@
             // Calculate "tomorrow" from today's perspective
             const tomorrow = (todayDay + 1) % 7;
 
-            // If target day already passed this week - locked
+            // Day already passed this week → reporting is for NEXT week's occurrence - open
             if (targetDay < todayDay) {
-                return true;
+                return false;
             }
 
-            // If target is today - locked (can't report same day)
+            // Today: locked for today itself, but from NEXT_WEEK_OPEN_HOUR reporting
+            // opens for the same day NEXT week
             if (targetDay === todayDay) {
-                return true;
+                return now.getHours() < NEXT_WEEK_OPEN_HOUR;
             }
 
             // If target is tomorrow - subject to 22:30 rule
@@ -1931,6 +1933,16 @@
             }
 
             // Target is more than 1 day in the future - open
+            return false;
+        }
+
+        // Is a report for this day actually for NEXT week's occurrence?
+        function isReportForNextWeek(targetDay) {
+            const now = new Date();
+            const todayDay = now.getDay();
+            if (todayDay === 6) return false; // Saturday: the whole coming week is "current"
+            if (targetDay < todayDay) return true;
+            if (targetDay === todayDay && now.getHours() >= NEXT_WEEK_OPEN_HOUR) return true;
             return false;
         }
 
@@ -2010,14 +2022,25 @@
             } else if (lockStatus === true) {
                 // Calculate which day the lock happened
                 const dayBefore = currentDay === 0 ? 6 : currentDay - 1;
+                const isToday = new Date().getDay() === currentDay;
                 container.innerHTML = `
                     <div class="locked-notice">
                         <div class="lock-icon">🔒</div>
                         <h3>הדיווח ליום ${dayNames[currentDay]} נעול</h3>
                         <p>הדיווח ננעל ביום ${dayNames[dayBefore]} בשעה ${LOCKOUT_HOUR}:${LOCKOUT_MINUTE.toString().padStart(2,'0')}</p>
+                        ${isToday ? `<p>📅 החל מהשעה ${NEXT_WEEK_OPEN_HOUR}:00 ייפתח דיווח ליום ${dayNames[currentDay]} <strong>בשבוע הבא</strong></p>` : ''}
                     </div>
                 `;
                 formCard.style.display = 'none';
+            } else if (isReportForNextWeek(currentDay)) {
+                container.innerHTML = `
+                    <div class="card" style="background: #e3f2fd; border: 2px solid #2196f3; margin-bottom: 20px;">
+                        <p style="margin: 0; color: #0d47a1;">
+                            📅 <strong>שים לב:</strong> הדיווח ליום ${dayNames[currentDay]} נרשם <strong>לשבוע הבא</strong>
+                        </p>
+                    </div>
+                `;
+                formCard.style.display = 'block';
             } else {
                 // Calculate when this day will lock
                 const dayBefore = currentDay === 0 ? 6 : currentDay - 1;
@@ -2348,10 +2371,20 @@
             if (hours.length === 0) { alert('נא לבחור לפחות שעה אחת'); return; }
             if (!reportedToMoshe) { alert('חובה לדווח לרב משה!'); return; }
 
+            // Re-check the lock at submission time (page may have been open since before 22:30)
+            const lockStatus = isDayLocked(currentDay);
+            if (lockStatus === true || lockStatus === 'shabbat') {
+                alert(`⛔ הדיווח ליום ${dayNames[currentDay]} נעול ולא ניתן לשלוח.`);
+                updateLockedNotice();
+                return;
+            }
+
+            const forNextWeek = isReportForNextWeek(currentDay);
+
             // Confirmation dialog
             const dayName = dayNames[currentDay];
             const hoursText = hours.join(', ');
-            const confirmMsg = `האם אתה בטוח שברצונך לדווח על היעדרות?\n\nמורה: ${teacher}\nיום: ${dayName}\nשעות: ${hoursText}`;
+            const confirmMsg = `האם אתה בטוח שברצונך לדווח על היעדרות?\n\nמורה: ${teacher}\nיום: ${dayName}${forNextWeek ? ' (📅 שבוע הבא!)' : ''}\nשעות: ${hoursText}`;
 
             if (!confirm(confirmMsg)) {
                 return;
@@ -2375,12 +2408,14 @@
                     teacher,
                     day: currentDay,
                     hour: hour, // Single hour instead of array
+                    classAtHour: getTeacherClassAtHour(teacher, currentDay, hour) || '',
                     reason,
                     reportedToMoshe,
                     substitute: '',
                     suggestion: suggestions[hour] || '',
                     createdAt: timestamp + index // Unique timestamp for each
                 };
+                if (forNextWeek) absenceData.forNextWeek = true;
 
                 const key = `${currentDay}_${timestamp}_${index}`;
 
@@ -2402,7 +2437,8 @@
                     // Save locally as backup
                     hours.forEach((hour, index) => {
                         const key = `${currentDay}_${timestamp}_${index}`;
-                        absencesData[key] = { teacher, day: currentDay, hour, reason, reportedToMoshe, substitute: '', suggestion: suggestions[hour] || '', createdAt: timestamp + index, pendingSync: true };
+                        absencesData[key] = { teacher, day: currentDay, hour, classAtHour: getTeacherClassAtHour(teacher, currentDay, hour) || '', reason, reportedToMoshe, substitute: '', suggestion: suggestions[hour] || '', createdAt: timestamp + index, pendingSync: true };
+                        if (forNextWeek) absencesData[key].forNextWeek = true;
                     });
                     localStorage.setItem('absences', JSON.stringify(absencesData));
                     clearForm();
@@ -3281,26 +3317,34 @@
                 const classAtHour = a.classAtHour || (currentHour ? getTeacherClassAtHour(a.teacher, currentDay, currentHour) : null);
                 const classDisplay = classAtHour ? ` | כיתה ${classAtHour}` : '';
                 const statusColor = a.substitute ? '#28a745' : a.merged ? '#2196f3' : '#667eea';
-                const statusText = a.substitute
+                // Merge details (direct = one teacher unites the classes; adjacent = two roles)
+                const mergedSubs = a.merged ? parallelClasses[a.mergedClass] : null;
+                const subsLabel = mergedSubs ? mergedSubs.join('+') : ('כיתות ' + (a.mergedClass || a.mergedWith || ''));
+                const isDirect = a.merged && (a.directMerge !== undefined
+                    ? a.directMerge
+                    : (mergedSubs ? mergedSubs.includes(classAtHour || '') : false));
+                const statusText = a.substitute && !a.merged
                     ? `ממלא מקום: <strong>${a.substitute}</strong>`
                     : a.merged
-                    ? `🔗 כיתה ${a.mergedClass || a.mergedWith} אוחדה | <strong>${a.substitute || 'איחוד'}</strong> → כיתה אחרת`
+                    ? `🔗 איחוד כיתות ${subsLabel} | <strong>${a.substitute || 'איחוד'}</strong> ${isDirect ? 'מלמד את הכיתה המאוחדת' : '→ כיתה ' + (classAtHour || '')}`
                     : '';
                 // Contact buttons for merged teachers (both covering and staying)
                 let homeContactBtns = '';
                 if (a.merged && a.substitute) {
                     const absentCls = classAtHour || '';
-                    const coverMsg = `שלום ${a.substitute}, תוכל בבקשה לעבור לכיתה ${absentCls} בשעה ${hourDisplay} (יום ${dayNames[currentDay]})? תודה רבה!`;
-                    homeContactBtns = `<div style="font-size:0.85rem;">➡️ <strong>${a.substitute}</strong> → כיתה ${absentCls} ${getContactButtonsHTML(a.substitute, coverMsg)}</div>`;
+                    const coverMsg = isDirect
+                        ? `שלום ${a.substitute}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} מאחדים את כיתות ${subsLabel} (${a.teacher} נעדר) — אתה מלמד את הכיתה המאוחדת. תודה רבה!`
+                        : `שלום ${a.substitute}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות${a.stayingTeacher ? ' אצל ' + a.stayingTeacher : ''}, ואתה עובר ללמד את כיתה ${absentCls} (במקום ${a.teacher}). תודה רבה!`;
+                    homeContactBtns = `<div style="font-size:0.85rem;">${isDirect ? '🔗' : '➡️'} <strong>${a.substitute}</strong> → ${isDirect ? 'מלמד את הכיתה המאוחדת ' + subsLabel : 'כיתה ' + absentCls} ${getContactButtonsHTML(a.substitute, coverMsg)}</div>`;
                     if (a.stayingTeacher) {
-                        const stayMsg = `שלום ${a.stayingTeacher}, כיתות ${a.mergedClass || ''} מאוחדות אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה!`;
-                        homeContactBtns += `<div style="font-size:0.85rem; margin-top:4px;">🔗 <strong>${a.stayingTeacher}</strong> → מאחד כיתות ${a.mergedClass || ''} ${getContactButtonsHTML(a.stayingTeacher, stayMsg)}</div>`;
+                        const stayMsg = `שלום ${a.stayingTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות אצלך — אתה מלמד את הכיתה המאוחדת. תודה רבה!`;
+                        homeContactBtns += `<div style="font-size:0.85rem; margin-top:4px;">🔗 <strong>${a.stayingTeacher}</strong> → מלמד את הכיתה המאוחדת ${subsLabel} ${getContactButtonsHTML(a.stayingTeacher, stayMsg)}</div>`;
                     }
                 }
                 return `
                 <div class="absence-item" style="border-right-color: ${statusColor}">
                     <div class="absence-info">
-                        <div class="name">${a.teacher}${a.permanent ? ' <span style="background:#ff9800;color:white;padding:1px 6px;border-radius:8px;font-size:0.7rem;">📌 קבוע</span>' : ''}${a.scheduled ? ` <span style="background:#9c27b0;color:white;padding:1px 6px;border-radius:8px;font-size:0.7rem;">📅 ${a.scheduledRange || 'מתוכנן'}</span>` : ''}</div>
+                        <div class="name">${a.teacher}${a.permanent ? ' <span style="background:#ff9800;color:white;padding:1px 6px;border-radius:8px;font-size:0.7rem;">📌 קבוע</span>' : ''}${a.scheduled ? ` <span style="background:#9c27b0;color:white;padding:1px 6px;border-radius:8px;font-size:0.7rem;">📅 ${a.scheduledRange || 'מתוכנן'}</span>` : ''}${a.forNextWeek ? ' <span style="background:#2196f3;color:white;padding:1px 6px;border-radius:8px;font-size:0.7rem;">📅 שבוע הבא</span>' : ''}</div>
                         <div class="details">
                             שעה: ${hourDisplay}${classDisplay}
                             ${a.reason ? ' | ' + a.reason : ''}
@@ -3566,7 +3610,7 @@
                 <div class="absence-item" style="border-right-color: ${a.substitute ? '#28a745' : '#ffc107'}">
                     <div class="absence-info">
                         <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
-                        <div class="details">חסר בשעה ${hourDisplay}${classInfo}${a.tripRelated ? ' | 🚌 מלווה בטיול' : ''}${a.suggestion ? ' | <span style="cursor:pointer;" onclick="toggleSuggestion(this)" title="לחץ לצפייה">📖 יש הנחיות</span>' : ''}</div>
+                        <div class="details">חסר בשעה ${hourDisplay}${classInfo}${a.tripRelated ? ' | 🚌 מלווה בטיול' : ''}${a.forNextWeek ? ' | 📅 שבוע הבא' : ''}${a.suggestion ? ' | <span style="cursor:pointer;" onclick="toggleSuggestion(this)" title="לחץ לצפייה">📖 יש הנחיות</span>' : ''}</div>
                         ${a.suggestion ? `<div class="suggestion-detail" style="display:none; margin-top:6px; padding:8px; background:#fff3e0; border-radius:8px; border-right:3px solid #ff9800; font-size:0.9rem;">📖 <strong>הנחיות:</strong> ${a.suggestion}</div>` : ''}
                     </div>
                     <div class="absence-status">
@@ -4015,6 +4059,16 @@
             if (!confirm('האם אתה בטוח? כל הנתונים יימחקו!')) return;
             if (!confirm('בטוח בטוח? אין דרך חזרה!')) return;
 
+            // Preserve reports made for NEXT week (they become current-week reports)
+            const nextWeekAbsences = {};
+            Object.entries(absencesData).forEach(function([id, a]) {
+                if (a.forNextWeek) {
+                    const copy = Object.assign({}, a);
+                    delete copy.forNextWeek;
+                    nextWeekAbsences[id] = copy;
+                }
+            });
+
             if (isOnline && database) {
                 database.ref('absences').remove().then(function() {
                     return database.ref('tripClasses').remove();
@@ -4023,18 +4077,27 @@
                 }).then(function() {
                     return database.ref('reminderDismissed').remove();
                 }).then(function() {
+                    return database.ref('tripExemptions').remove();
+                }).then(function() {
+                    var promises = Object.entries(nextWeekAbsences).map(function([id, a]) {
+                        return database.ref('absences/' + id).set(a);
+                    });
+                    return Promise.all(promises);
+                }).then(function() {
                     return restorePermanentAbsences();
                 }).then(function() {
-                    alert('נמחק הכל! (היעדרויות קבועות שוחזרו)');
+                    alert('נמחק הכל! (היעדרויות קבועות ודיווחים לשבוע הבא שוחזרו)');
                     updateAllViews();
                 });
             } else {
-                localStorage.removeItem('absences');
                 localStorage.removeItem('tripClasses');
                 localStorage.removeItem('availableTeachers');
-                absencesData = {};
+                localStorage.removeItem('tripExemptions');
+                absencesData = nextWeekAbsences;
+                localStorage.setItem('absences', JSON.stringify(absencesData));
                 tripClassesData = {};
                 availableTeachersData = {};
+                tripExemptionsData = {};
                 alert('נמחק הכל!');
                 updateAllViews();
             }
