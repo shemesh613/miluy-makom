@@ -1752,6 +1752,7 @@
         let availableTeachersData = {};
         let teacherPointsData = {};
         let unlockedDaysData = {}; // Days manually unlocked by admin
+        let tripExemptionsData = {}; // Teachers exempted from mandatory trip substitution: {day: {teacher: true}}
         let settingsUnlocked = false;
         const SETTINGS_PASSWORD = '123456';
         const LOCKOUT_HOUR = 22;
@@ -2256,6 +2257,11 @@
                 updateUnlockedDaysList();
                 updateLockedNotice();
             });
+
+            database.ref('tripExemptions').on('value', (snapshot) => {
+                tripExemptionsData = snapshot.val() || {};
+                updateAllViews();
+            });
         }
 
         // Load from localStorage
@@ -2265,6 +2271,7 @@
             availableTeachersData = JSON.parse(localStorage.getItem('availableTeachers') || '{}');
             teacherPointsData = JSON.parse(localStorage.getItem('teacherPoints') || '{}');
             unlockedDaysData = JSON.parse(localStorage.getItem('unlockedDays') || '{}');
+            tripExemptionsData = JSON.parse(localStorage.getItem('tripExemptions') || '{}');
             updateTripClassesUI();
             updateHonorBoard();
             updateUnlockedDaysList();
@@ -2815,14 +2822,13 @@
                     const schedule = teacherSchedule[teacher];
                     const todayHours = schedule?.dayHours?.[currentDay] || [];
                     todayHours.forEach(hour => {
-                        // Skip "בוקר" - no substitute needed during trips
-                        if (hour === 'בוקר') return;
-
                         // Get which class this teacher teaches at this hour
                         const classAtHour = getTeacherClassAtHour(teacher, currentDay, hour);
 
-                        // Skip if teacher teaches the trip class at this hour
-                        if (classAtHour === classOnTrip) return;
+                        // Skip if teacher teaches the trip class at this hour (incl. בוקר of the trip class)
+                        if (isClassOnTrip(classAtHour, [classOnTrip])) return;
+
+                        // בוקר of another class DOES need a substitute (the escort is away all day)
 
                         // Check if absence already exists
                         const exists = Object.values(absencesData).some(a =>
@@ -2940,6 +2946,51 @@
             updateAllViews();
         }
 
+        // === Trip duty exemptions (בטל מ"מ חובה לטיול) ===
+        function exemptTripDuty(teacher) {
+            if (!confirm(`לבטל את חובת מילוי המקום של ${teacher} להיום?`)) return;
+            if (!tripExemptionsData[currentDay]) tripExemptionsData[currentDay] = {};
+            tripExemptionsData[currentDay][teacher] = true;
+            if (isOnline && database) {
+                database.ref(`tripExemptions/${currentDay}/${teacher}`).set(true);
+            } else {
+                localStorage.setItem('tripExemptions', JSON.stringify(tripExemptionsData));
+                updateAllViews();
+            }
+        }
+
+        function restoreTripDuty(teacher) {
+            if (tripExemptionsData[currentDay]) delete tripExemptionsData[currentDay][teacher];
+            if (isOnline && database) {
+                database.ref(`tripExemptions/${currentDay}/${teacher}`).remove();
+            } else {
+                localStorage.setItem('tripExemptions', JSON.stringify(tripExemptionsData));
+                updateAllViews();
+            }
+        }
+
+        function isTripExempted(teacher) {
+            return !!(tripExemptionsData[currentDay] && tripExemptionsData[currentDay][teacher]);
+        }
+
+        // Is this teacher unavailable at a given hour today?
+        // (absent themselves, accompanying a trip, or already assigned as substitute/merger at this hour)
+        function isTeacherUnavailable(teacher, hour) {
+            const strHour = String(hour);
+            const dayAbsences = Object.values(absencesData).filter(a => String(a.day) === String(currentDay));
+            // Absent themselves at this hour
+            if (dayAbsences.some(a => a.teacher === teacher &&
+                (String(a.hour) === strHour || (a.hours && a.hours.map(String).includes(strHour))))) return true;
+            // Accompanying a trip today
+            const trips = tripClassesData[currentDay] || [];
+            if (trips.some(t => typeof t === 'object' &&
+                ((t.teachers && t.teachers.includes(teacher)) || t.teacher === teacher))) return true;
+            // Already assigned (substitute or merge roles) at this hour for someone else
+            return dayAbsences.some(a => a.teacher !== teacher &&
+                (String(a.hour) === strHour || (a.hours && a.hours.map(String).includes(strHour))) &&
+                (a.substitute === teacher || a.stayingTeacher === teacher));
+        }
+
         // Calculate who is available based on schedule and trips
         function calculateAvailableTeachers() {
             const trips = tripClassesData[currentDay] || [];
@@ -2959,6 +3010,7 @@
             const required = [];
             const optional = [];
             const notWorking = [];
+            const exempted = []; // Teachers exempted from mandatory trip duty today
 
             // Get all hours that need coverage from today's absences
             const dayAbsences = Object.values(absencesData).filter(a => a.day === currentDay);
@@ -3001,12 +3053,16 @@
 
                     if (tripHours.length > 0) {
                         const classNames = classesOnTrip.join(', ');
-                        required.push({
-                            name: teacher,
-                            hours: tripHours,
-                            reason: `כיתה ${classNames} בטיול`,
-                            hakbatza: schedule.hakbatza
-                        });
+                        if (isTripExempted(teacher)) {
+                            exempted.push({ name: teacher, hours: tripHours, reason: `כיתה ${classNames} בטיול` });
+                        } else {
+                            required.push({
+                                name: teacher,
+                                hours: tripHours,
+                                reason: `כיתה ${classNames} בטיול`,
+                                hakbatza: schedule.hakbatza
+                            });
+                        }
                     }
 
                     // Non-trip hours: teacher still teaches, so check for free hours
@@ -3067,7 +3123,50 @@
             // Sort optional by priority
             optional.sort((a, b) => (a.priority || 99) - (b.priority || 99));
 
-            return { required, optional, notWorking };
+            // If a required teacher is absent and someone substitutes for them,
+            // the trip duty passes automatically to the substitute
+            const dayRegularAbsences = Object.values(absencesData).filter(a =>
+                String(a.day) === String(currentDay) && !a.tripRelated);
+            const finalRequired = [];
+            required.forEach(r => {
+                const ownHours = [];
+                const uncovered = [];
+                const transferred = {}; // substitute name -> hours
+                r.hours.forEach(hour => {
+                    const absAtHour = dayRegularAbsences.find(a =>
+                        a.teacher === r.name && String(a.hour) === String(hour));
+                    if (!absAtHour) { ownHours.push(hour); return; }
+                    // Absent at this hour - find their substitute (at this hour, or any hour today)
+                    let sub = absAtHour.substitute && absAtHour.substitute !== '' ? absAtHour.substitute : null;
+                    if (!sub) {
+                        const anySub = dayRegularAbsences.find(a =>
+                            a.teacher === r.name && a.substitute && a.substitute !== '');
+                        if (anySub) sub = anySub.substitute;
+                    }
+                    if (sub) {
+                        (transferred[sub] = transferred[sub] || []).push(hour);
+                    } else {
+                        uncovered.push(hour);
+                    }
+                });
+                if (ownHours.length > 0 || uncovered.length > 0) {
+                    finalRequired.push({ ...r, hours: ownHours.concat(uncovered), uncoveredHours: uncovered });
+                }
+                Object.entries(transferred).forEach(([sub, hours]) => {
+                    const existing = finalRequired.find(fr => fr.name === sub && fr.transferredFrom);
+                    if (existing) {
+                        existing.hours = existing.hours.concat(hours);
+                    } else {
+                        finalRequired.push({
+                            name: sub, hours,
+                            reason: `${r.reason} — מחליף את ${r.name} (חסר)`,
+                            transferredFrom: r.name
+                        });
+                    }
+                });
+            });
+
+            return { required: finalRequired, optional, notWorking, exempted };
         }
 
         // Update trip indicator (above tabs)
@@ -3128,7 +3227,6 @@
 
             const dayAbsences = Object.values(absencesData).filter(a => {
                 if (a.day !== currentDay) return false;
-                if (a.hour === 'בוקר' && a.tripRelated) return false;
                 const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                 if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
                 return true;
@@ -3150,8 +3248,6 @@
                 if (a.day !== currentDay) return false;
                 // Permanent absences always show
                 if (a.permanent || a.scheduled) return true;
-                // Skip "בוקר" only for trip-related absences
-                if (a.hour === 'בוקר' && a.tripRelated) return false;
                 // Skip if teacher's class at this hour is on a trip
                 const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                 if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
@@ -3205,20 +3301,37 @@
 
         // Update available teachers
         function updateAvailableTeachers() {
-            const { required, optional, notWorking } = calculateAvailableTeachers();
+            const { required, optional, notWorking, exempted } = calculateAvailableTeachers();
 
             // Required
             const reqContainer = document.getElementById('required-teachers-list');
-            if (required.length === 0) {
+            if (required.length === 0 && exempted.length === 0) {
                 reqContainer.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>אין כיתות בטיול</p></div>';
             } else {
                 reqContainer.innerHTML = required.map(t => {
-                    const contactMsg = `שלום ${t.name}, הכיתה שלך בטיול היום (יום ${dayNames[currentDay]}). יש לך מילוי מקום בשעות ${t.hours.filter(h => h !== 'בוקר').join(', ')}. תודה רבה!`;
-                    // Find unassigned absences where this teacher can substitute
                     const freeHours = t.hours.filter(h => h !== 'בוקר');
+                    // Hours where this teacher is ALREADY assigned as substitute today (can't be assigned twice)
+                    const alreadyAssignedHours = new Set(Object.values(absencesData)
+                        .filter(a => String(a.day) === String(currentDay) && a.substitute === t.name)
+                        .map(a => String(a.hour)));
+                    // Find unassigned absences where this teacher can substitute (skip hours already taken)
                     const matchingAbsences = Object.entries(absencesData).filter(([id, a]) =>
-                        a.day === currentDay && (!a.substitute || a.substitute === '') && !a.merged && freeHours.includes(a.hour)
+                        a.day === currentDay && (!a.substitute || a.substitute === '') && !a.merged &&
+                        freeHours.includes(a.hour) && !alreadyAssignedHours.has(String(a.hour))
                     );
+                    // Precise message: exactly which hour, class and whom they replace
+                    const assignedToday = Object.values(absencesData).filter(a =>
+                        String(a.day) === String(currentDay) && a.substitute === t.name);
+                    let contactMsg;
+                    if (assignedToday.length > 0) {
+                        const details = assignedToday.map(a => {
+                            const cls = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                            return `שעה ${a.hour}${cls ? ' בכיתה ' + cls : ''} (במקום ${a.teacher})`;
+                        }).join(', ');
+                        contactMsg = `שלום ${t.name}, ${t.transferredFrom ? `בעקבות היעדרות של ${t.transferredFrom} והטיול היום` : 'הכיתה שלך בטיול היום'} (יום ${dayNames[currentDay]}) שובצת למילוי מקום: ${details}. תודה רבה!`;
+                    } else {
+                        contactMsg = `שלום ${t.name}, ${t.transferredFrom ? `אתה מחליף היום את ${t.transferredFrom} והכיתה שלו בטיול` : 'הכיתה שלך בטיול היום'} (יום ${dayNames[currentDay]}), ולכן עליך למלא מקום בשעות ${freeHours.join(', ')}. פרטי השיבוץ המדויקים יישלחו בהמשך. תודה רבה!`;
+                    }
                     const assignBtns = matchingAbsences.length > 0
                         ? matchingAbsences.map(([id, a]) =>
                             `<button class="btn btn-primary btn-sm" style="margin:2px;padding:6px 12px;font-size:0.85rem;" onclick="quickAssign('${id}','${t.name.replace(/'/g,"\\'")}')">🔄 שבץ לשעה ${a.hour} (${a.teacher})</button>`
@@ -3227,17 +3340,36 @@
                     const autoAssignBtn = matchingAbsences.length > 1
                         ? `<button class="btn btn-primary btn-sm" style="margin:2px;padding:6px 12px;font-size:0.85rem;background:#ff9800;" onclick="quickAssignAll('${t.name.replace(/'/g,"\\'")}')">⚡ שבץ לכל השעות</button>`
                         : '';
+                    const uncoveredWarning = t.uncoveredHours && t.uncoveredHours.length > 0
+                        ? `<div style="margin-top:4px;color:#c62828;font-size:0.85rem;">⚠️ חסר בשעות ${t.uncoveredHours.join(', ')} ללא מחליף — יש לשבץ מחליף שיקבל את החובה</div>`
+                        : '';
+                    const transferredNote = t.transferredFrom
+                        ? `<div style="margin-top:4px;color:#1565c0;font-size:0.85rem;">🔁 החובה הועברה מ${t.transferredFrom} (חסר היום)</div>`
+                        : '';
                     return `
                     <div class="teacher-card required">
                         <div style="flex: 1;">
                             <div class="teacher-name">${t.name}</div>
-                            <div class="teacher-hours">${t.reason} ${t.hakbatza ? '(' + t.hakbatza + ')' : ''} | שעות: ${t.hours.filter(h => h !== 'בוקר').join(', ')}</div>
+                            <div class="teacher-hours">${t.reason} ${t.hakbatza ? '(' + t.hakbatza + ')' : ''} | שעות: ${freeHours.join(', ')}</div>
+                            ${transferredNote}${uncoveredWarning}
                             <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${autoAssignBtn}${assignBtns}</div>
                         </div>
                         <div class="contact-buttons">${getContactButtonsHTML(t.name, contactMsg)}</div>
-                        <span class="badge badge-required">חובה</span>
+                        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                            <span class="badge badge-required">חובה</span>
+                            <button onclick="exemptTripDuty('${t.name.replace(/'/g,"\\'")}')" style="background:none;border:1px solid #dc3545;color:#dc3545;border-radius:8px;padding:2px 8px;font-size:0.75rem;cursor:pointer;" title="בטל את חובת מילוי המקום">❌ בטל חובה</button>
+                        </div>
                     </div>
-                `}).join('');
+                `}).join('') + exempted.map(t => `
+                    <div class="teacher-card" style="opacity:0.75;border-right:4px solid #9e9e9e;">
+                        <div style="flex: 1;">
+                            <div class="teacher-name">${t.name}</div>
+                            <div class="teacher-hours">${t.reason} | פטור מחובת מילוי מקום היום</div>
+                        </div>
+                        <button onclick="restoreTripDuty('${t.name.replace(/'/g,"\\'")}')" style="background:none;border:1px solid #28a745;color:#28a745;border-radius:8px;padding:4px 10px;font-size:0.8rem;cursor:pointer;">↩️ החזר חובה</button>
+                        <span class="badge" style="background:#9e9e9e;color:white;">פטור</span>
+                    </div>
+                `).join('');
             }
 
             // Optional
@@ -3252,7 +3384,11 @@
                     } else {
                         hoursInfo = `${t.reason} | שעות: ${t.hours.join(', ')}`;
                     }
-                    const contactMsg = `שלום ${t.name}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]}) בשעות ${t.hours.join(', ')}? תודה רבה!`;
+                    // Message includes ONLY hours actually needed (matching unassigned absences), with exact details
+                    const personal = buildPersonalMessage(t.name, t.hours);
+                    const contactMsg = personal
+                        ? personal.msg
+                        : `שלום ${t.name}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? אשלח פרטים מדויקים בהמשך. תודה רבה!`;
                     return `
                     <div class="teacher-card">
                         <div style="flex: 1;">
@@ -3288,13 +3424,16 @@
             const allAvailable = [...required, ...optional];
 
             // Filter to only teachers who are free at THIS specific hour
-            const filtered = allAvailable.filter(t => t.hours.includes(hour)).map(t => ({
+            // and NOT already absent / on trip / assigned elsewhere at this hour
+            const filtered = allAvailable.filter(t =>
+                t.hours.includes(hour) && !isTeacherUnavailable(t.name, hour)
+            ).map(t => ({
                 ...t,
                 isRequired: required.some(r => r.name === t.name)
             }));
 
             // Always add הרב צביקה as permanent substitute (if not already in list)
-            if (!filtered.some(t => t.name === 'הרב צביקה')) {
+            if (!filtered.some(t => t.name === 'הרב צביקה') && !isTeacherUnavailable('הרב צביקה', hour)) {
                 filtered.push({
                     name: 'הרב צביקה',
                     hours: ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'],
@@ -3327,8 +3466,6 @@
                 if (a.day !== currentDay) return false;
                 // Permanent absences always show
                 if (a.permanent || a.scheduled) return true;
-                // Skip "בוקר" only for trip-related absences
-                if (a.hour === 'בוקר' && a.tripRelated) return false;
                 // Skip if teacher's class at this hour is on a trip
                 const classAtHour = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                 if (classAtHour && isClassOnTrip(classAtHour, tripClassNames)) return false;
@@ -3502,8 +3639,8 @@
             if (matchingSlots.length === 0) return null;
 
             const slotsText = matchingSlots.map(s =>
-                `שעה ${s.hour}${s.class ? ' בכיתה ' + s.class : ''}`
-            ).join(' ו');
+                `שעה ${s.hour}${s.class ? ' בכיתה ' + s.class : ''}${s.absentTeacher ? ' (במקום ' + s.absentTeacher + ')' : ''}`
+            ).join(', ');
 
             return {
                 msg: `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]}) ב${slotsText}? נודה לך מאוד! תודה רבה!`,
@@ -3763,12 +3900,17 @@
             const availableHours = freeHours.length === 0 && schedule?.days?.includes(currentDay) ? allHours : allHours.filter(h => !freeHours.includes(h));
 
             let count = 0;
+            // Hours already taken by this teacher today (as substitute) - never assign twice at the same hour
+            const assignedHours = new Set(Object.values(absencesData)
+                .filter(a => String(a.day) === String(currentDay) && a.substitute === teacherName)
+                .map(a => String(a.hour)));
             Object.entries(absencesData).forEach(([id, a]) => {
                 if (a.day === currentDay && (!a.substitute || a.substitute === '') && !a.merged) {
-                    // Check if teacher is free at this hour
+                    // Check if teacher is free at this hour and not already assigned at this hour
                     const teachingHours = schedule?.dayHours?.[currentDay] || [];
-                    if (!teachingHours.includes(a.hour)) {
+                    if (!teachingHours.includes(a.hour) && !assignedHours.has(String(a.hour))) {
                         assignSubstitute(id, teacherName);
+                        assignedHours.add(String(a.hour));
                         count++;
                     }
                 }
