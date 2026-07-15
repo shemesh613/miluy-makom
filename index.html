@@ -1721,25 +1721,20 @@
             const escapedPhone = contact.phone;
             const escapedMsg = msg.replace(/'/g, "\\'").replace(/\n/g, '\\n');
 
+            // All contact options for EVERY teacher (WhatsApp, SMS, email, call) - preferred method first
+            const waBtn = `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>`;
+            const smsBtn = `<a href="sms:${contact.phone}?body=${encodeURIComponent(msg)}" class="contact-btn contact-sms" title="הודעת SMS">✉️</a>`;
+            const callBtn = `<a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
             const emailBtn = contact.email
                 ? `<a href="mailto:${contact.email}?subject=${encodeURIComponent('בקשה למילוי מקום')}&body=${encodeURIComponent(msg)}" class="contact-btn" style="background:#EA4335;color:white;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:0.8rem;" title="שלח מייל">📧</a>`
                 : '';
 
-            if (contact.method === 'whatsapp') {
-                return `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
-                        ${emailBtn}
-                        <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
-            } else if (contact.method === 'sms') {
-                const link = `sms:${contact.phone}?body=${encodeURIComponent(msg)}`;
-                return `<a href="${link}" class="contact-btn contact-sms" title="הודעה">✉️</a>
-                        <button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
-                        ${emailBtn}
-                        <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
-            } else {
-                return `<button onclick="sendWaLinkToAdmin('${escapedTeacher}','${escapedPhone}','${escapedMsg}')" class="contact-btn contact-whatsapp" title="שלח קישור ווטסאפ">💬</button>
-                        ${emailBtn}
-                        <a href="tel:${contact.phone}" class="contact-btn contact-call" title="התקשר">📞</a>`;
+            if (contact.method === 'sms') {
+                return `${smsBtn} ${waBtn} ${emailBtn} ${callBtn}`;
+            } else if (contact.method === 'call') {
+                return `${callBtn} ${waBtn} ${smsBtn} ${emailBtn}`;
             }
+            return `${waBtn} ${smsBtn} ${emailBtn} ${callBtn}`;
         }
 
         // Global variables
@@ -2547,7 +2542,8 @@
                     // Find covering teacher from parallel sub-class AT THIS SPECIFIC HOUR
                     const subClasses = parallelClasses[parallelClass];
                     const coveringTeacher = subClasses
-                        ? subClasses.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour)).find(t => t && t !== a.teacher)
+                        ? subClasses.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour))
+                            .find(t => t && t !== a.teacher && !isTeacherUnavailable(t, absenceHour))
                         : null;
 
                     if (coveringTeacher) {
@@ -2582,8 +2578,9 @@
                         if (subs) {
                             const otherSub = subs.find(sc => sc !== absentClass);
                             // Find who ACTUALLY teaches the other sub-class at this hour
+                            // (and verify they are not absent/on trip/assigned themselves)
                             const coverTeacher = otherSub ? getTeacherOfClassAtHour(otherSub, currentDay, absenceHour) : null;
-                            if (coverTeacher && coverTeacher !== a.teacher) {
+                            if (coverTeacher && coverTeacher !== a.teacher && !isTeacherUnavailable(coverTeacher, absenceHour)) {
                                 mergeable.push({
                                     id, teacher: a.teacher, hour: absenceHour,
                                     absentClass, parallelClass: baseClass, coveringTeacher: coverTeacher
@@ -2605,11 +2602,13 @@
                         const adjSubs = parallelClasses[adjClass];
                         if (adjSubs) {
                             // Adjacent class has sub-classes — find teacher of any sub at this hour
-                            adjTeacher = adjSubs.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour)).find(t => t && t !== a.teacher);
+                            adjTeacher = adjSubs.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour))
+                                .find(t => t && t !== a.teacher && !isTeacherUnavailable(t, absenceHour));
                         }
                         if (!adjTeacher) {
                             // No sub-classes or not found — try the base class directly
-                            adjTeacher = getTeacherOfClassAtHour(adjClass, currentDay, absenceHour);
+                            const baseTeacher = getTeacherOfClassAtHour(adjClass, currentDay, absenceHour);
+                            if (baseTeacher && !isTeacherUnavailable(baseTeacher, absenceHour)) adjTeacher = baseTeacher;
                         }
                         if (adjTeacher && adjTeacher !== a.teacher) {
                             mergeable.push({
@@ -2632,12 +2631,15 @@
                     const escapedTeacher = (m.coveringTeacher || '').replace(/'/g, "\\'");
                     let description;
                     if (m.isAdjacent) {
-                        // Adjacent: e.g. "כיתות ב1+ב2 יאוחדו → הרב שמשון יכסה כיתה ג"
+                        // Adjacent: e.g. "כיתות ב1+ב2 יאוחדו → הרב שמשון יעבור לכיתה ג"
                         const mergedSubs = parallelClasses[m.parallelClass];
                         const subsLabel = mergedSubs ? mergedSubs.join('+') : m.parallelClass;
-                        description = `כיתות ${subsLabel} יאוחדו → ${m.coveringTeacher} יכסה כיתה ${classLabel}`;
+                        description = `כיתות ${subsLabel} יאוחדו → ${m.coveringTeacher} יעבור לכיתה ${classLabel}`;
                     } else {
-                        description = `איחוד כיתה ${m.parallelClass} → ${m.coveringTeacher} יכסה`;
+                        // Direct parallel merge: the parallel teacher teaches both sub-classes together
+                        const mergedSubs = parallelClasses[m.parallelClass];
+                        const subsLabel = mergedSubs ? mergedSubs.join('+') : 'כיתות ' + m.parallelClass;
+                        description = `איחוד כיתות ${subsLabel} → ${m.coveringTeacher} ילמד את הכיתה המאוחדת`;
                     }
                     return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 8px;">
@@ -2670,18 +2672,30 @@
 
             const coverName = coveringTeacher || 'איחוד כיתות';
 
-            // Find the staying teacher (the one who takes both sub-classes) at this specific hour
+            const subClasses = parallelClasses[parallelClass] || [];
+            const subsLabel = subClasses.length > 0 ? subClasses.join('+') : parallelClass;
+            const absentClass = absence.classAtHour || getTeacherClassAtHour(absence.teacher, currentDay, absenceHour) || '';
+
+            // Direct merge: the absent class is one of the merged sub-classes → the covering
+            // teacher simply teaches the merged class. Adjacent merge: two other classes merge
+            // and their freed teacher moves to the absent class → two roles.
+            const isDirectMerge = subClasses.includes(absentClass);
+
             let stayingTeacher = '';
-            const subClasses = parallelClasses[parallelClass];
-            if (subClasses && coveringTeacher) {
-                stayingTeacher = subClasses.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour)).find(t => t && t !== coveringTeacher) || '';
+            if (!isDirectMerge && coveringTeacher) {
+                stayingTeacher = subClasses.map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour))
+                    .find(t => t && t !== coveringTeacher && t !== absence.teacher && !isTeacherUnavailable(t, absenceHour)) || '';
             }
 
-            if (!confirm(`לאשר איחוד כיתה ${parallelClass}?\n${coverName} יכסה את השעה${stayingTeacher ? '\n' + stayingTeacher + ' יאחד את הכיתות' : ''}`)) return;
+            const confirmMsg = isDirectMerge
+                ? `לאשר איחוד כיתות ${subsLabel} בשעה ${absenceHour}?\n${coverName} ילמד את הכיתה המאוחדת`
+                : `לאשר איחוד? כיתות ${subsLabel} יאוחדו בשעה ${absenceHour}${stayingTeacher ? '\n' + stayingTeacher + ' ילמד את הכיתה המאוחדת' : ''}\n${coverName} יעבור לכיתה ${absentClass}`;
+            if (!confirm(confirmMsg)) return;
 
             const updateData = {
                 merged: true,
                 mergedClass: parallelClass,
+                directMerge: isDirectMerge,
                 substitute: coverName,
                 stayingTeacher: stayingTeacher || null
             };
@@ -3499,13 +3513,25 @@
                     const stayTeacher = a.stayingTeacher || '';
                     const absentClass = classAtHour || '';
                     const mergedClass = a.mergedClass || '';
+                    const mergedSubs = parallelClasses[mergedClass];
+                    const subsLabel = mergedSubs ? mergedSubs.join('+') : ('כיתות ' + mergedClass);
+                    // Direct merge = absent class is one of the merged sub-classes (one teacher, one role)
+                    const isDirect = a.directMerge !== undefined
+                        ? a.directMerge
+                        : (mergedSubs ? mergedSubs.includes(absentClass) : false);
 
-                    // Soft message for teacher going to absent class
-                    const coverMsg = `שלום ${coverTeacher}, תוכל בבקשה לעבור לכיתה ${absentClass} בשעה ${hourDisplay} (יום ${dayNames[currentDay]})? תודה רבה!`;
+                    let coverMsg, coverRole;
+                    if (isDirect) {
+                        coverMsg = `שלום ${coverTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} מאחדים את כיתות ${subsLabel} (${a.teacher} נעדר) — אתה מלמד את הכיתה המאוחדת. תודה רבה!`;
+                        coverRole = `מלמד את הכיתה המאוחדת ${subsLabel}`;
+                    } else {
+                        coverMsg = `שלום ${coverTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות${stayTeacher ? ' אצל ' + stayTeacher : ''}, ואתה עובר ללמד את כיתה ${absentClass} (במקום ${a.teacher}). תודה רבה!`;
+                        coverRole = `עובר לכיתה ${absentClass}`;
+                    }
                     const coverBtns = getContactButtonsHTML(coverTeacher, coverMsg);
 
-                    // Soft message for teacher staying with merged classes
-                    const stayMsg = stayTeacher ? `שלום ${stayTeacher}, כיתות ${mergedClass} מאוחדות אליך בשעה ${hourDisplay} (יום ${dayNames[currentDay]}). תודה!` : '';
+                    // Message for the teacher who teaches the merged classes (adjacent merge only)
+                    const stayMsg = stayTeacher ? `שלום ${stayTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות אצלך — אתה מלמד את הכיתה המאוחדת. תודה רבה!` : '';
                     const stayBtns = stayTeacher ? getContactButtonsHTML(stayTeacher, stayMsg) : '';
 
                     // Swap button (only when both teachers exist)
@@ -3515,11 +3541,11 @@
                     <div class="absence-item" style="border-right-color: #2196f3; background: #e3f2fd;">
                         <div class="absence-info">
                             <div class="name">${a.teacher} - שעה ${hourDisplay}${classInfo}</div>
-                            <div class="details">🔗 איחוד כיתה ${mergedClass}</div>
+                            <div class="details">🔗 איחוד כיתות ${subsLabel}</div>
                             <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
-                                ${coverBtns ? `<div style="padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>➡️ ${coverTeacher}</strong> → כיתה ${absentClass}<div class="contact-buttons" style="margin-top:4px;">${coverBtns}</div></div>` : ''}
+                                ${coverBtns ? `<div style="padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>${isDirect ? '🔗' : '➡️'} ${coverTeacher}</strong> → ${coverRole}<div class="contact-buttons" style="margin-top:4px;">${coverBtns}</div></div>` : ''}
                                 ${swapBtn ? `<div style="text-align:center;">${swapBtn}</div>` : ''}
-                                ${stayBtns ? `<div style="padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>🔗 ${stayTeacher}</strong> → מאחד כיתות ${mergedClass}<div class="contact-buttons" style="margin-top:4px;">${stayBtns}</div></div>` : ''}
+                                ${stayBtns ? `<div style="padding:6px; background:rgba(255,255,255,0.7); border-radius:8px;"><strong>🔗 ${stayTeacher}</strong> → מלמד את הכיתה המאוחדת ${subsLabel}<div class="contact-buttons" style="margin-top:4px;">${stayBtns}</div></div>` : ''}
                             </div>
                         </div>
                         <button class="btn-merge" onclick="cancelMerge('${id}')" style="background: #dc3545; font-size: 0.8rem;">↩️ בטל</button>
