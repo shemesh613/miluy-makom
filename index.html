@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת מילוי מקום - ת"ת (v3.0)</title>
+    <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1359,6 +1359,17 @@
         <!-- הגדרות -->
         <div id="page-settings" class="page">
             <div class="card">
+                <h2><span class="icon">📥</span> עדכון קובץ מערכת</h2>
+                <p style="color: #666; margin-bottom: 15px;">העלה קובץ אקסל של המערכת (בפורמט "לפי מלמדים" + "לפי כיתות") — המערכת תתעדכן ותסתנכרן מיידית בכל המכשירים</p>
+                <div id="schedule-override-status" style="margin-bottom: 12px; font-size: 0.9rem;"></div>
+                <input type="file" id="schedule-file-input" accept=".xlsx,.xls" onchange="handleScheduleFile(this)" style="margin-bottom: 6px;">
+                <div id="schedule-upload-status"></div>
+                <div style="margin-top: 12px;">
+                    <button class="btn btn-secondary btn-sm" onclick="removeScheduleOverride()">↩️ חזרה למערכת המובנית</button>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2><span class="icon">🚌</span> כיתות בטיול היום</h2>
                 <p style="color: #666; margin-bottom: 15px;">סמן אילו כיתות בטיול - המורים שלהם יסומנו כ"חייבים למלא מקום"</p>
                 <div class="hours-selector" id="trip-classes-selector">
@@ -1849,6 +1860,12 @@
             'המורה חגית': {0: {'6':'א1', '7':'א2', '8':'א2'}, 1: {'4':'ב1', '5':'א1', '6':'א2', '7':'א1', '8':'א1'}, 3: {'4':'א2', '5':'א2', '6':'א1'}, 4: {'4':'א2', '6':'ב2'}},
             'המורה זוהרה': {0: {'7':'ב1', '8':'ב1'}, 1: {'5':'ב2', '6':'ב1'}, 2: {'4':'ב2'}, 3: {'8':'ב1'}, 4: {'4':'ב1', '7':'ב2', '8':'ב2'}},
         };
+
+        // Pristine copies of the built-in schedule (for reverting an uploaded override)
+        const builtinTeacherSchedule = JSON.parse(JSON.stringify(teacherSchedule));
+        const builtinDayHourClasses = JSON.parse(JSON.stringify(dayHourClassesData));
+        const builtinClassMechanech = JSON.parse(JSON.stringify(classMechanech));
+        let activeScheduleInfo = null; // {fileName, updatedAt} when an override is active
 
         // Helper: get class a teacher teaches at specific day+hour
         function getTeacherClassAtHour(teacher, day, hour) {
@@ -2611,6 +2628,14 @@
                 tripExemptionsData = snapshot.val() || {};
                 updateAllViews();
             });
+
+            database.ref('scheduleOverride').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val) localStorage.setItem('scheduleOverride', JSON.stringify(val));
+                else localStorage.removeItem('scheduleOverride');
+                applyScheduleOverride(val);
+                updateAllViews();
+            });
         }
 
         // Load from localStorage
@@ -2621,6 +2646,10 @@
             teacherPointsData = JSON.parse(localStorage.getItem('teacherPoints') || '{}');
             unlockedDaysData = JSON.parse(localStorage.getItem('unlockedDays') || '{}');
             tripExemptionsData = JSON.parse(localStorage.getItem('tripExemptions') || '{}');
+            const cachedOverride = localStorage.getItem('scheduleOverride');
+            if (cachedOverride) {
+                try { applyScheduleOverride(JSON.parse(cachedOverride)); } catch (e) { console.error('Bad cached scheduleOverride', e); }
+            }
             updateTripClassesUI();
             updateHonorBoard();
             updateUnlockedDaysList();
@@ -4498,6 +4527,240 @@
         }
 
         // Reset week
+        // ===== Schedule file upload & override (עדכון קובץ מערכת) =====
+        const scheduleNameAliases = { 'הרב שימשון': 'הרב שמשון' };
+        const SCHEDULE_CLASS_TOKEN = /^[א-ח][12]?$/;
+        const SCHEDULE_HOUR_ORDER = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+
+        function normalizeScheduleName(n) {
+            const t = String(n).trim();
+            return scheduleNameAliases[t] || t;
+        }
+
+        function extractScheduleClass(cell) {
+            const tokens = String(cell).split(/[\s,/|]+/);
+            return tokens.find(t => SCHEDULE_CLASS_TOKEN.test(t)) || null;
+        }
+
+        // Parse the "לפי מלמדים" sheet: multiple stacked sections, each with a
+        // teacher-name row, a day-header row (ראשון..שישי) and hour rows (1..N).
+        // Hours 1-3 = בוקר; hours 4-10 = numbered hours.
+        function parseScheduleRows(rows) {
+            const headerRows = [];
+            rows.forEach((r, i) => {
+                if ((r || []).some(c => String(c).trim() === 'ראשון')) headerRows.push(i);
+            });
+            if (headerRows.length === 0) throw new Error('לא נמצאה שורת ימים (ראשון...) בגיליון');
+
+            const acc = {}; // name -> { dayHours: {d:Set}, hourClasses: {d:{label:class}} }
+            headerRows.forEach((headerRow, si) => {
+                const blocks = [];
+                (rows[headerRow] || []).forEach((cell, c) => {
+                    if (String(cell).trim() === 'ראשון') {
+                        const name = normalizeScheduleName((rows[headerRow - 1] || [])[c - 1] || '');
+                        if (name) blocks.push({ col: c - 1, name });
+                    }
+                });
+                const sectionEnd = si + 1 < headerRows.length ? headerRows[si + 1] - 1 : rows.length;
+                blocks.forEach(({ col, name }) => {
+                    if (!acc[name]) acc[name] = { dayHours: {}, hourClasses: {} };
+                    const { dayHours, hourClasses } = acc[name];
+                    for (let i = headerRow + 1; i < sectionEnd; i++) {
+                        const hourNum = Number((rows[i] || [])[col]);
+                        if (!hourNum || hourNum < 1 || hourNum > 12) continue;
+                        for (let d = 0; d <= 5; d++) {
+                            const cell = String(((rows[i] || [])[col + 1 + d]) || '').trim();
+                            if (!cell) continue;
+                            const label = hourNum <= 3 ? 'בוקר' : (hourNum <= 10 ? String(hourNum) : null);
+                            if (!label) continue;
+                            if (!dayHours[d]) dayHours[d] = new Set();
+                            dayHours[d].add(label);
+                            const cls = extractScheduleClass(cell);
+                            if (cls) {
+                                if (!hourClasses[d]) hourClasses[d] = {};
+                                if (!(label in hourClasses[d])) hourClasses[d][label] = cls;
+                            }
+                        }
+                    }
+                });
+            });
+
+            const teachers = {};
+            Object.entries(acc).forEach(([name, data]) => {
+                const days = Object.keys(data.dayHours).map(Number).sort((a, b) => a - b);
+                if (days.length === 0) return;
+                const dayHoursSorted = {};
+                const dayClasses = {};
+                days.forEach(d => {
+                    dayHoursSorted[d] = [...data.dayHours[d]].sort((a, b) =>
+                        SCHEDULE_HOUR_ORDER.indexOf(a) - SCHEDULE_HOUR_ORDER.indexOf(b));
+                    const bases = new Set(Object.values(data.hourClasses[d] || {}).map(c => c.replace(/[12]/g, '')));
+                    dayClasses[d] = [...bases];
+                });
+                teachers[name] = { days, dayHours: dayHoursSorted, dayClasses, hourClasses: data.hourClasses };
+            });
+            return teachers;
+        }
+
+        // Parse the "לפי כיתות" sheet headers ("א1 הרב שלומי") into classMechanech
+        function parseMechanechRows(rows, knownNames) {
+            const mechanech = {};
+            rows.forEach((r, i) => {
+                if (!(r || []).some(c => String(c).trim() === 'ראשון')) return;
+                (r || []).forEach((cell, c) => {
+                    if (String(cell).trim() === 'ראשון') {
+                        const header = String((rows[i - 1] || [])[c - 1] || '').trim();
+                        const m = header.match(/^([א-ח][12]?)\s+(.+)$/);
+                        if (m) mechanech[m[1]] = resolveScheduleTeacherName(normalizeScheduleName(m[2]), knownNames);
+                    }
+                });
+            });
+            return mechanech;
+        }
+
+        // Resolve a partial name ("משה", "הרב יעקב") to the full teacher name
+        function resolveScheduleTeacherName(raw, known) {
+            if (known.includes(raw)) return raw;
+            const matches = known.filter(k => k.includes(raw) || raw.includes(k));
+            return matches.length === 1 ? matches[0] : raw;
+        }
+
+        // Apply an uploaded schedule override (or revert to built-in when null)
+        function applyScheduleOverride(o) {
+            const ts = (o && o.teacherSchedule) || builtinTeacherSchedule;
+            const dhc = (o && o.dayHourClasses) || builtinDayHourClasses;
+            const mech = (o && o.classMechanech) || builtinClassMechanech;
+
+            Object.keys(teacherSchedule).forEach(k => delete teacherSchedule[k]);
+            Object.entries(ts).forEach(([k, v]) => { if (v) teacherSchedule[k] = JSON.parse(JSON.stringify(v)); });
+            if (teacherSchedule['הרב צביקה']) teacherSchedule['הרב צביקה'].permanent = true;
+
+            Object.keys(dayHourClassesData).forEach(k => delete dayHourClassesData[k]);
+            Object.entries(dhc).forEach(([k, v]) => { if (v) dayHourClassesData[k] = JSON.parse(JSON.stringify(v)); });
+
+            Object.keys(classMechanech).forEach(k => delete classMechanech[k]);
+            Object.entries(mech).forEach(([k, v]) => { if (v) classMechanech[k] = v; });
+
+            // Refresh the teacher list (union of schedule + contacts)
+            const names = new Set([...Object.keys(teacherSchedule), ...Object.keys(teacherContacts)]);
+            allTeachers.length = 0;
+            [...names].sort((a, b) => a.localeCompare(b, 'he')).forEach(n => allTeachers.push(n));
+
+            activeScheduleInfo = o ? { fileName: o.fileName || '', updatedAt: o.updatedAt || 0 } : null;
+            if (typeof populateTeacherSelect === 'function') populateTeacherSelect();
+            if (typeof populateTripTeacherSelect === 'function') populateTripTeacherSelect();
+            updateScheduleOverrideStatus();
+        }
+
+        function updateScheduleOverrideStatus() {
+            const el = document.getElementById('schedule-override-status');
+            if (!el) return;
+            if (activeScheduleInfo) {
+                const when = activeScheduleInfo.updatedAt ? new Date(activeScheduleInfo.updatedAt).toLocaleDateString('he-IL') : '';
+                el.innerHTML = `✅ פעילה מערכת מקובץ: <strong>${activeScheduleInfo.fileName || 'קובץ שהועלה'}</strong>${when ? ' (עודכן ' + when + ')' : ''}`;
+                el.style.color = '#2e7d5b';
+            } else {
+                el.innerHTML = 'ℹ️ פעילה המערכת המובנית בקוד';
+                el.style.color = '#6e7482';
+            }
+        }
+
+        // Lazy-load SheetJS only when a file is uploaded
+        function loadSheetJS() {
+            return new Promise((resolve, reject) => {
+                if (window.XLSX) return resolve(window.XLSX);
+                const s = document.createElement('script');
+                s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+                s.onload = () => resolve(window.XLSX);
+                s.onerror = () => reject(new Error('טעינת ספריית האקסל נכשלה - בדוק חיבור לאינטרנט'));
+                document.head.appendChild(s);
+            });
+        }
+
+        let pendingScheduleData = null;
+
+        async function handleScheduleFile(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('schedule-upload-status');
+            statusEl.innerHTML = '⏳ קורא את הקובץ...';
+            pendingScheduleData = null;
+            try {
+                const XLSXlib = await loadSheetJS();
+                const buf = await file.arrayBuffer();
+                const wb = XLSXlib.read(buf);
+                const teacherSheetName = wb.SheetNames.find(n => n.includes('מלמדים')) || wb.SheetNames[wb.SheetNames.length - 1];
+                const classSheetName = wb.SheetNames.find(n => n.includes('כתות') || n.includes('כיתות'));
+                const tRows = XLSXlib.utils.sheet_to_json(wb.Sheets[teacherSheetName], { header: 1, defval: '' });
+                const parsed = parseScheduleRows(tRows);
+                const names = Object.keys(parsed);
+                if (names.length === 0) throw new Error('לא נמצאו מורים בקובץ');
+
+                const ts = {}, dhc = {};
+                let totalSlots = 0;
+                names.forEach(name => {
+                    const t = parsed[name];
+                    ts[name] = { days: t.days, dayHours: t.dayHours, dayClasses: t.dayClasses };
+                    dhc[name] = t.hourClasses;
+                    totalSlots += Object.values(t.dayHours).reduce((s, h) => s + h.length, 0);
+                });
+                let mech = null;
+                if (classSheetName) {
+                    const cRows = XLSXlib.utils.sheet_to_json(wb.Sheets[classSheetName], { header: 1, defval: '' });
+                    mech = parseMechanechRows(cRows, names);
+                }
+
+                pendingScheduleData = {
+                    teacherSchedule: ts,
+                    dayHourClasses: dhc,
+                    classMechanech: mech,
+                    fileName: file.name,
+                    updatedAt: Date.now()
+                };
+
+                const unknown = names.filter(n => !teacherContacts[n]);
+                statusEl.innerHTML = `
+                    <div style="padding:12px; background:#f3f7f2; border:1px solid rgba(46,125,91,0.35); border-radius:12px; margin-top:8px;">
+                        <div>📋 נמצאו <strong>${names.length}</strong> מורים, <strong>${totalSlots}</strong> משבצות שבועיות${mech ? ', ' + Object.keys(mech).length + ' מחנכים' : ''}</div>
+                        ${unknown.length > 0 ? `<div style="color:#b26a00; margin-top:6px;">⚠️ מורים ללא פרטי קשר במערכת: ${unknown.join(', ')}</div>` : ''}
+                        <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="confirmScheduleUpload()">✅ אשר והחלף מערכת</button>
+                    </div>`;
+            } catch (e) {
+                console.error('Schedule parse error:', e);
+                statusEl.innerHTML = `<div style="color:#a63d40; margin-top:8px;">❌ ${e.message}</div>`;
+            }
+        }
+
+        function confirmScheduleUpload() {
+            if (!pendingScheduleData) return;
+            if (!confirm('להחליף את המערכת הפעילה בקובץ שהועלה?\nהעדכון יסתנכרן מיידית לכל המכשירים.')) return;
+            const data = pendingScheduleData;
+            localStorage.setItem('scheduleOverride', JSON.stringify(data));
+            if (isOnline && database) {
+                database.ref('scheduleOverride').set(data).then(() => {
+                    alert('✅ המערכת עודכנה וסונכרנה לכל המכשירים!');
+                }).catch(e => alert('❌ שגיאה בסנכרון: ' + e.message));
+            } else {
+                applyScheduleOverride(data);
+                updateAllViews();
+                alert('✅ המערכת עודכנה מקומית (תסונכרן כשיהיה חיבור)');
+            }
+            document.getElementById('schedule-upload-status').innerHTML = '';
+            document.getElementById('schedule-file-input').value = '';
+            pendingScheduleData = null;
+        }
+
+        function removeScheduleOverride() {
+            if (!confirm('לחזור למערכת המובנית בקוד? (הקובץ שהועלה יימחק)')) return;
+            localStorage.removeItem('scheduleOverride');
+            if (isOnline && database) {
+                database.ref('scheduleOverride').remove();
+            } else {
+                applyScheduleOverride(null);
+                updateAllViews();
+            }
+        }
+
         function resetWeek() {
             if (!confirm('האם אתה בטוח? כל הנתונים יימחקו!')) return;
             if (!confirm('בטוח בטוח? אין דרך חזרה!')) return;
@@ -4622,10 +4885,11 @@
             }
         }, 60000);
 
-        // Hero date line
+        // Hero date line + initial schedule-override status
         (function() {
             const el = document.getElementById('hero-date');
             if (el) el.textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            updateScheduleOverrideStatus();
         })();
     </script>
 </body>
