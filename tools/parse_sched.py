@@ -145,6 +145,40 @@ for name, t in parsed.items():
                                      for c in hc.values()})
 print('הושלמו %d משבצות של מחנכים לפי כיתתם' % filled)
 
+# ---------------------------------------------------------------------------
+# ישיבת מחנכים: כשהיא מתקיימת — *כל* המחנכים תפוסים, גם אם בקובץ נשכח לציין
+# את זה אצל מישהו. בלי הכלל הזה מחנך שהתא שלו ריק ייראה פנוי למילוי מקום.
+# המחנכים = מי שמלמד בשעות 1–3 ברוב הימים (יום חופשי אחד לא פוסל) — וזו בדיוק
+# רשימת 13 המחנכים מגיליון "לפי כתות".
+# ---------------------------------------------------------------------------
+from collections import Counter
+slots = Counter(m for t in parsed.values() for m in t['meetings'])
+if slots:
+    meeting, seen = slots.most_common(1)[0]
+    md, mh = meeting.split('|')
+    md = int(md)
+    added = []
+    for name in own:                       # own = מחנך -> כיתה
+        t = parsed.get(name)
+        if not t:
+            continue
+        hours = t['dayHours'].setdefault(md, [])
+        if mh not in hours:
+            hours.append(mh)
+            hours.sort(key=HOUR_ORDER.index)
+            added.append(name)
+        if md not in t['days']:
+            t['days'] = sorted(t['days'] + [md])
+    others = [m for m, _ in slots.items() if m != meeting]
+    print('ישיבת מחנכים: יום %d שעה %s — %d/%d מחנכים סומנו בקובץ%s'
+          % (md, mh, seen, len(own), (', נוספו: ' + ', '.join(added)) if added else ''))
+    if others:
+        print('  ⚠️ רשומות ישיבה בשעות אחרות: %s' % ', '.join(
+            '%s (%s)' % (o, ', '.join(n for n, t in parsed.items() if o in t['meetings']))
+            for o in others))
+else:
+    print('⚠️ לא נמצאה ישיבת מחנכים בקובץ')
+
 total = sum(len(h) for t in parsed.values() for h in t['dayHours'].values())
 print('גיליון מלמדים: %s | גיליון כיתות: %s' % (t_sheet, c_sheet))
 print('מורים: %d | משבצות שבועיות: %d | מחנכים: %d' % (len(parsed), total, len(mech)))

@@ -171,6 +171,48 @@ PAGE = """        <!-- Yard duty page -->
         <div id="page-suggestions" class="page">"""
 sub(r'        <div id="page-suggestions" class="page">', PAGE, 'עמוד תורנות חצר')
 
+# ---------- 7ב. ישיבת מחנכים — כלל, לא הסתמכות על הקובץ ----------
+sub(r'(?=        // Pristine copies of the built-in schedule)',
+    """        // ישיבת מחנכים: בשעה הזו *כל* המחנכים תפוסים. הקובץ אמנם מציין את זה
+        // אצל כל אחד, אבל אם בקובץ עתידי יישכח מישהו — הוא ייראה פנוי למילוי מקום
+        // ולתורנות, וזו בדיוק הטעות שאסור שתקרה. לכן זה נאכף כאן כחוק.
+        // (המחנכים = מי שמלמד בשעות 1–3 ברוב הימים; יום חופשי אחד לא פוסל.)
+        const MECHANECH_MEETING = { day: 2, hour: '7', label: 'ישיבת מחנכים' };
+
+        function enforceMechanechMeeting() {
+            const { day, hour } = MECHANECH_MEETING;
+            [...new Set(Object.values(classMechanech))].forEach(name => {
+                const t = teacherSchedule[name];
+                if (!t || t.assistant) return;
+                t.dayHours = t.dayHours || {};
+                const hours = t.dayHours[day] || (t.dayHours[day] = []);
+                if (!hours.includes(hour)) {
+                    // סדר מקומי — הפונקציה נקראת גם לפני ש-SCHEDULE_HOUR_ORDER מאותחל
+                    const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+                    hours.push(hour);
+                    hours.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                }
+                t.days = t.days || [];
+                if (!t.days.includes(day)) t.days = [...t.days, day].sort((a, b) => a - b);
+            });
+        }
+
+        function isMechanechMeeting(day, hour) {
+            return day === MECHANECH_MEETING.day && hour === MECHANECH_MEETING.hour;
+        }
+
+""", 'כלל ישיבת מחנכים')
+
+sub(r'        const builtinClassMechanech = JSON\.parse\(JSON\.stringify\(classMechanech\)\);',
+    '        const builtinClassMechanech = JSON.parse(JSON.stringify(classMechanech));\n'
+    '        enforceMechanechMeeting();   // גם על המערכת המובנית, לא רק על קובץ שהועלה',
+    'אכיפת הישיבה על המערכת המובנית')
+
+sub(r'            activeScheduleInfo = o \? \{ fileName: o\.fileName \|\| \'\', updatedAt: o\.updatedAt \|\| 0 \} : null;',
+    '            enforceMechanechMeeting();\n'
+    '            activeScheduleInfo = o ? { fileName: o.fileName || \'\', updatedAt: o.updatedAt || 0 } : null;',
+    'אכיפת הישיבה גם על מערכת שהועלתה')
+
 # ---------- 8. כיבוד `only` — לא כל מלמד מסכים לכל ערוץ ----------
 sub(r"""            if \(contact\.method === 'sms'\) \{
                 return `\$\{smsBtn\} \$\{waBtn\} \$\{emailBtn\} \$\{callBtn\}`;
