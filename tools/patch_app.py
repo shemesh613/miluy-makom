@@ -63,9 +63,13 @@ CONTACTS = """        const teacherContacts = {
             'שרה תורג\\'מן': { phone: '0548463377', method: 'call' },
             'לאה': { phone: '0538202498', method: 'call' },
             'חגית': { phone: '0548415819', method: 'call', email: 'chagitb1000@gmail.com' },
-            // ⚠️ חדשים בתשפ"ז — חסרים פרטי קשר: הרב אביגדור, הרב חגי,
-            //    הרב משה חיים נתן, המורה רבקי, הרב ליאור (סייע), הרב אורי אסייג (סייע).
-            //    להוסיף כאן באותו פורמט וכפתורי הקשר יופיעו אוטומטית.
+            // חדשים בתשפ"ז. `only` מגביל אילו כפתורי קשר מוצגים (ברירת מחדל: הכל).
+            'הרב אביגדור': { phone: '0548434808', method: 'whatsapp', email: '0548434@gmail.com' },
+            'הרב חגי': { phone: '0543944121', method: 'call', only: ['call', 'sms'], email: 'c0543944121@gmail.com' },
+            'הרב משה חיים נתן': { phone: '0527146707', method: 'call', only: ['call'], email: 'm0527146707@gmail.com' },
+            'הרב ליאור (סייע)': { phone: '0543032836', method: 'sms', only: ['sms', 'call'] },
+            'הרב אורי אסייג (סייע)': { phone: '0506516642', method: 'sms', only: ['sms', 'call'] },
+            // ⚠️ עדיין חסר: המורה רבקי.
         };
 
         // מלמדים שאינם בתשפ"ז — נשמר כדי לא לאבד מספרים אם יחזרו
@@ -166,6 +170,53 @@ PAGE = """        <!-- Yard duty page -->
 
         <div id="page-suggestions" class="page">"""
 sub(r'        <div id="page-suggestions" class="page">', PAGE, 'עמוד תורנות חצר')
+
+# ---------- 8. כיבוד `only` — לא כל מלמד מסכים לכל ערוץ ----------
+sub(r"""            if \(contact\.method === 'sms'\) \{
+                return `\$\{smsBtn\} \$\{waBtn\} \$\{emailBtn\} \$\{callBtn\}`;
+            \} else if \(contact\.method === 'call'\) \{
+                return `\$\{callBtn\} \$\{waBtn\} \$\{smsBtn\} \$\{emailBtn\}`;
+            \}
+            return `\$\{waBtn\} \$\{smsBtn\} \$\{emailBtn\} \$\{callBtn\}`;""",
+    """            // מלמד שביקש ערוצים מסוימים בלבד — לא מציגים לו את השאר
+            const allow = contact.only || ['whatsapp', 'sms', 'call'];
+            const btn = { whatsapp: waBtn, sms: smsBtn, call: callBtn };
+            const order = contact.method === 'sms' ? ['sms', 'whatsapp', 'call']
+                        : contact.method === 'call' ? ['call', 'whatsapp', 'sms']
+                        : ['whatsapp', 'sms', 'call'];
+            return order.filter(k => allow.includes(k)).map(k => btn[k]).concat(emailBtn).join(' ');""",
+    'כיבוד ערוצי קשר מותרים')
+
+# ---------- 9. אזהרת חוסר פרטי קשר בהגדרות ----------
+sub(r"""                <div style="margin-top: 12px;">
+                    <button class="btn btn-secondary btn-sm" onclick="removeScheduleOverride\(\)">↩️ חזרה למערכת המובנית</button>
+                </div>""",
+    """                <div style="margin-top: 12px;">
+                    <button class="btn btn-secondary btn-sm" onclick="removeScheduleOverride()">↩️ חזרה למערכת המובנית</button>
+                </div>
+                <div id="missing-contacts" style="margin-top: 14px; font-size: 0.88rem;"></div>""",
+    'מקום לאזהרת פרטי קשר')
+
+sub(r'        function updateYardBadge\(\) \{',
+    """        // מי מהצוות עדיין בלי טלפון — בלעדיו אין כפתורי יצירת קשר
+        function updateMissingContacts() {
+            const el = document.getElementById('missing-contacts');
+            if (!el) return;
+            const missing = allTeachers.filter(t => !teacherContacts[t]);
+            el.innerHTML = missing.length
+                ? `<div style="padding:10px 12px; background:#fdf3e0; border:1px solid rgba(178,106,0,0.3); border-radius:10px; color:#8a5300;">
+                     ⚠️ חסרים פרטי קשר ל־<strong>${missing.length}</strong> מהצוות: ${missing.join(', ')}.<br>
+                     בלי טלפון לא יופיעו להם כפתורי ווטסאפ/SMS/חיוג.
+                   </div>`
+                : '<div style="color:#2e7d5b;">✓ לכל הצוות יש פרטי קשר</div>';
+        }
+
+        function updateYardBadge() {""",
+    'פונקציית אזהרת פרטי קשר')
+
+sub(r'            updateYardDuty\(\);\n        \}',
+    '            updateYardDuty();\n            updateMissingContacts();\n        }',
+    'קריאה ל-updateMissingContacts')
 
 CSS = """        .yard-badge { background:#c62828; color:#fff; border-radius:10px; padding:0 6px;
             font-size:0.72rem; min-width:18px; height:18px; align-items:center;

@@ -153,7 +153,7 @@
 
                 if (p.status === 'ok') {
                     return `<div class="yard-row yard-row-ok">
-                        <div class="yard-slot"><strong>${p.slot}</strong><small>${YARD_GROUP[p.slot] || ''}</small></div>
+                        <div class="yard-slot"><strong>${p.slot}</strong><small>${p.post === 'שער' ? 'הכל' : (YARD_GROUP[p.slot] || '')}</small></div>
                         <div class="yard-post">${p.post}</div>
                         <div class="yard-who">${p.toran}</div>
                         <div class="yard-status">${badge}</div>
@@ -167,7 +167,7 @@
                     : (p.cover ? '<div class="yard-repay yard-repay-none">↩️ אין תורנות שאפשר להחזיר בה — לסכם ידנית</div>' : '');
 
                 return `<div class="yard-row yard-row-need">
-                    <div class="yard-slot"><strong>${p.slot}</strong><small>${YARD_GROUP[p.slot] || ''}</small></div>
+                    <div class="yard-slot"><strong>${p.slot}</strong><small>${p.post === 'שער' ? 'הכל' : (YARD_GROUP[p.slot] || '')}</small></div>
                     <div class="yard-post">${p.post}</div>
                     <div class="yard-who">
                         <div class="yard-absent">${p.toran} — נעדר</div>

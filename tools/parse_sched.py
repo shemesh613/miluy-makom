@@ -32,6 +32,11 @@ def sheet_rows(ws):
     return rows
 
 
+# פעילויות שאינן שיעור עם כיתה. השעה נחשבת תפוסה (המלמד לא פנוי למילוי מקום),
+# אבל אסור לשייך לה כיתה — "י. מחנכים" היא ישיבת מחנכים, לא שיעור.
+NON_CLASS = {'י. מחנכים', 'ישיבת מחנכים', 'י.מחנכים'}
+
+
 def parse_schedule(rows):
     header_rows = [i for i, r in enumerate(rows) if any(c == 'ראשון' for c in r)]
     if not header_rows:
@@ -47,7 +52,7 @@ def parse_schedule(rows):
                     blocks.append((c - 1, name))
         end = header_rows[si + 1] - 1 if si + 1 < len(header_rows) else len(rows)
         for col, name in blocks:
-            a = acc.setdefault(name, {'dayHours': {}, 'hourClasses': {}})
+            a = acc.setdefault(name, {'dayHours': {}, 'hourClasses': {}, 'meetings': set()})
             for i in range(hr + 1, end):
                 row = rows[i] if i < len(rows) else []
                 raw = row[col] if col < len(row) else ''
@@ -66,6 +71,9 @@ def parse_schedule(rows):
                     if label is None:
                         continue
                     a['dayHours'].setdefault(d, set()).add(label)
+                    if cell in NON_CLASS:
+                        a['meetings'].add((d, label))
+                        continue
                     cls = extract_class(cell)
                     if cls:
                         hc = a['hourClasses'].setdefault(d, {})
@@ -80,8 +88,9 @@ def parse_schedule(rows):
             day_hours[d] = sorted(data['dayHours'][d], key=HOUR_ORDER.index)
             bases = {c.replace('1', '').replace('2', '') for c in data['hourClasses'].get(d, {}).values()}
             day_classes[d] = sorted(bases)
-        out[name] = {'days': days, 'dayHours': day_hours,
-                     'dayClasses': day_classes, 'hourClasses': data['hourClasses']}
+        out[name] = {'days': days, 'dayHours': day_hours, 'dayClasses': day_classes,
+                     'hourClasses': data['hourClasses'],
+                     'meetings': sorted('%s|%s' % m for m in data['meetings'])}
     return out
 
 
@@ -125,10 +134,11 @@ for name, t in parsed.items():
     cls = own.get(name)
     if not cls:
         continue
+    meets = set(t['meetings'])
     for d in t['days']:
         hc = t['hourClasses'].setdefault(d, {})
         for h in t['dayHours'][d]:
-            if h not in hc:
+            if h not in hc and '%s|%s' % (d, h) not in meets:
                 hc[h] = cls
                 filled += 1
         t['dayClasses'][d] = sorted({c.replace('1', '').replace('2', '')
