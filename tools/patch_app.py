@@ -199,6 +199,31 @@ sub(r'(?=        // Pristine copies of the built-in schedule)',
             });
         }
 
+        // חסימות אישיות — מלמד שאינו בבניין בשעות מסוימות אף שבמערכת הן
+        // נראות כשעת חלון. נאכף כאן ולא רק בקובץ, כדי שגם מערכת שתועלה
+        // בהמשך לא תחזיר אותו לרשימת הפנויים.
+        const PERSONAL_BLOCKS = {
+            'הרב ינון': { hours: ['4', '5'], reason: 'יוצא מהמתחם 10:05–12:30' },
+        };
+
+        function enforcePersonalBlocks() {
+            const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+            Object.entries(PERSONAL_BLOCKS).forEach(([name, rule]) => {
+                const t = teacherSchedule[name];
+                if (!t) return;
+                (t.days || []).forEach(d => {
+                    const hours = t.dayHours[d] || (t.dayHours[d] = []);
+                    rule.hours.forEach(h => { if (!hours.includes(h)) hours.push(h); });
+                    hours.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                });
+            });
+        }
+
+        function personalBlockReason(teacher, hour) {
+            const r = PERSONAL_BLOCKS[teacher];
+            return (r && r.hours.includes(hour)) ? r.reason : null;
+        }
+
         function isMechanechMeeting(day, hour) {
             return day === MECHANECH_MEETING.day && hour === MECHANECH_MEETING.hour;
         }
@@ -207,7 +232,8 @@ sub(r'(?=        // Pristine copies of the built-in schedule)',
 
 sub(r'        const builtinClassMechanech = JSON\.parse\(JSON\.stringify\(classMechanech\)\);',
     '        const builtinClassMechanech = JSON.parse(JSON.stringify(classMechanech));\n'
-    '        enforceMechanechMeeting();   // גם על המערכת המובנית, לא רק על קובץ שהועלה',
+    '        enforceMechanechMeeting();   // גם על המערכת המובנית, לא רק על קובץ שהועלה\n'
+    '        enforcePersonalBlocks();',
     'אכיפת הישיבה על המערכת המובנית')
 
 sub(r'            activeScheduleInfo = o \? \{ fileName: o\.fileName \|\| \'\', updatedAt: o\.updatedAt \|\| 0 \} : null;',
@@ -280,6 +306,7 @@ CSS = """        .yard-badge { background:#c62828; color:#fff; border-radius:10p
         .yard-cover { margin-top:2px; }
         .yard-repay { margin-top:4px; font-size:0.82rem; color:#2e5d7d; }
         .yard-repay-none { color:#b26a00; }
+        .yard-clash { margin-top:4px; font-size:0.82rem; color:#c62828; font-weight:600; }
         .yard-status { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
         .yard-actions { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
         .yard-pill { font-size:0.72rem; padding:2px 8px; border-radius:999px; white-space:nowrap; }

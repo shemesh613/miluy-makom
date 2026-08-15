@@ -44,6 +44,16 @@
                 a.teacher === teacher && a.day === dayIdx && !a.forNextWeek && adj.includes(a.hour));
         }
 
+        // כלל הצלבה: מי שכבר שובץ למלא מקום בשיעור צמוד להפסקה כבר "נלקח"
+        // על ידי המערכת השנייה. שתי המערכות רצות במקביל על אותם אנשים, ובלי
+        // הבדיקה הזו אותו מלמד היה מקבל גם שיעור וגם תורנות באותו זמן.
+        function yardCoveringLesson(teacher, dayIdx, slot) {
+            const adj = YARD_ADJACENT[slot] || [];
+            const hit = Object.values(absencesData).find(a =>
+                a.substitute === teacher && a.day === dayIdx && adj.includes(a.hour));
+            return hit ? { teacher: hit.teacher, hour: hit.hour } : null;
+        }
+
         // מי ממלא את מקומו בשיעור הצמוד להפסקה (מתוך שיבוץ מילוי המקום)
         function yardLessonSubstitute(teacher, dayIdx, slot) {
             const adj = YARD_ADJACENT[slot] || [];
@@ -65,13 +75,15 @@
 
                 const cands = ((YARD_SUBS[d.key] || {}).cands || []);
                 const free = cands.filter(c =>
-                    !taken.has(d.slot + '|' + c.name) && !yardAbsentAt(c.name, dayIdx, d.slot));
+                    !taken.has(d.slot + '|' + c.name) && !yardAbsentAt(c.name, dayIdx, d.slot)
+                    && !yardCoveringLesson(c.name, dayIdx, d.slot));
 
                 // שיבוץ ידני שנקבע קודם — מכבדים אותו
                 const manual = yardSwapsData[d.key];
                 if (manual && manual.cover) {
                     taken.add(d.slot + '|' + manual.cover);
-                    return { ...d, status: 'manual', cover: manual.cover, repay: manual.repay || null, options: free };
+                    return { ...d, status: 'manual', cover: manual.cover, repay: manual.repay || null,
+                             options: free, clash: yardCoveringLesson(manual.cover, dayIdx, d.slot) };
                 }
 
                 if (free.length) {
@@ -162,6 +174,9 @@
 
                 const msg = `שלום ${p.cover || ''}, ${p.toran} נעדר היום ולכן התורנות של ${p.slot} ב${p.post} עוברת אליך. תודה רבה!`;
                 const contact = p.cover ? getContactButtonsHTML(p.cover, msg) : '';
+                const clashTxt = p.clash
+                    ? `<div class="yard-clash">⚠️ ${p.cover} כבר ממלא מקום ל${p.clash.teacher} בשעה ${p.clash.hour}</div>`
+                    : '';
                 const repayTxt = p.repay
                     ? `<div class="yard-repay">↩️ ${p.toran} יחזיר ל${p.cover}: <strong>${yardFmt(p.repay)}</strong></div>`
                     : (p.cover ? '<div class="yard-repay yard-repay-none">↩️ אין תורנות שאפשר להחזיר בה — לסכם ידנית</div>' : '');
@@ -173,6 +188,7 @@
                         <div class="yard-absent">${p.toran} — נעדר</div>
                         <div class="yard-cover">${p.cover ? '➜ <strong>' + p.cover + '</strong>' : '➜ טרם נמצא מחליף'}</div>
                         ${repayTxt}
+                        ${clashTxt}
                     </div>
                     <div class="yard-status">
                         ${badge}

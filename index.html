@@ -1046,6 +1046,7 @@
         .yard-cover { margin-top:2px; }
         .yard-repay { margin-top:4px; font-size:0.82rem; color:#2e5d7d; }
         .yard-repay-none { color:#b26a00; }
+        .yard-clash { margin-top:4px; font-size:0.82rem; color:#c62828; font-weight:600; }
         .yard-status { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
         .yard-actions { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
         .yard-pill { font-size:0.72rem; padding:2px 8px; border-radius:999px; white-space:nowrap; }
@@ -1573,7 +1574,7 @@
             'הרב דוד': { days: [1, 3], dayHours: { 1: ['4','6','7','8'], 3: ['5','6','7','8'] }, dayClasses: { 1: ['ג','ו','ז','ח'], 3: ['א','ב','ד','ה'] } },
             'הרב חגי': { days: [0, 2, 4], dayHours: { 0: ['4','5','6','7','8','9'], 2: ['4','5','6','7','8'], 4: ['בוקר','4','5','7','8','9'] }, dayClasses: { 0: ['ג','ה','ו'], 2: ['ג','ה','ו'], 4: ['ג','ה','ו'] } },
             'הרב יובל': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר'], 1: ['בוקר','4','7','8'], 2: ['בוקר','5','6','7'], 3: ['בוקר','5','6','7','8','9'], 4: ['בוקר','5','6','7','8'], 5: ['בוקר','4','5'] }, dayClasses: { 0: ['א'], 1: ['א','ג','ד'], 2: ['א'], 3: ['א','ד','ה'], 4: ['א','ד'], 5: ['א'] } },
-            'הרב ינון': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר','6','7','8'], 1: ['בוקר','6','7','8'], 2: ['בוקר','7'], 3: ['בוקר','6','7','8'], 4: ['בוקר','6','7','8'], 5: ['בוקר','4','5'] }, dayClasses: { 0: ['ו'], 1: ['ב','ו'], 2: ['ו'], 3: ['ב','ו'], 4: ['ה','ו'], 5: ['ו'] } },
+            'הרב ינון': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר','4','5','6','7','8'], 1: ['בוקר','4','5','6','7','8'], 2: ['בוקר','4','5','7'], 3: ['בוקר','4','5','6','7','8'], 4: ['בוקר','4','5','6','7','8'], 5: ['בוקר','4','5'] }, dayClasses: { 0: ['ו'], 1: ['ב','ו'], 2: ['ו'], 3: ['ב','ו'], 4: ['ה','ו'], 5: ['ו'] } },
             'הרב יעקב': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר','4','5','6'], 1: ['בוקר','4','5','6'], 2: ['בוקר','4','5','6','7'], 3: ['בוקר','4','5','6'], 4: ['בוקר','4','5','6'], 5: ['בוקר','4'] }, dayClasses: { 0: ['ח'], 1: ['ח'], 2: ['ח'], 3: ['ח'], 4: ['ח'], 5: ['ח'] } },
             'הרב ליאור (סייע)': { days: [], dayHours: {}, dayClasses: {}, assistant: true },
             'הרב מור': { days: [0, 1, 2, 3, 4], dayHours: { 0: ['7','8'], 1: ['10'], 2: ['10'], 3: ['10'], 4: ['10'] }, dayClasses: { 0: ['ז','ח'], 1: ['ז'], 2: ['ח'], 3: ['ז'], 4: ['ח'] } },
@@ -1651,6 +1652,31 @@
             });
         }
 
+        // חסימות אישיות — מלמד שאינו בבניין בשעות מסוימות אף שבמערכת הן
+        // נראות כשעת חלון. נאכף כאן ולא רק בקובץ, כדי שגם מערכת שתועלה
+        // בהמשך לא תחזיר אותו לרשימת הפנויים.
+        const PERSONAL_BLOCKS = {
+            'הרב ינון': { hours: ['4', '5'], reason: 'יוצא מהמתחם 10:05–12:30' },
+        };
+
+        function enforcePersonalBlocks() {
+            const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+            Object.entries(PERSONAL_BLOCKS).forEach(([name, rule]) => {
+                const t = teacherSchedule[name];
+                if (!t) return;
+                (t.days || []).forEach(d => {
+                    const hours = t.dayHours[d] || (t.dayHours[d] = []);
+                    rule.hours.forEach(h => { if (!hours.includes(h)) hours.push(h); });
+                    hours.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                });
+            });
+        }
+
+        function personalBlockReason(teacher, hour) {
+            const r = PERSONAL_BLOCKS[teacher];
+            return (r && r.hours.includes(hour)) ? r.reason : null;
+        }
+
         function isMechanechMeeting(day, hour) {
             return day === MECHANECH_MEETING.day && hour === MECHANECH_MEETING.hour;
         }
@@ -1660,6 +1686,7 @@
         const builtinDayHourClasses = JSON.parse(JSON.stringify(dayHourClassesData));
         const builtinClassMechanech = JSON.parse(JSON.stringify(classMechanech));
         enforceMechanechMeeting();   // גם על המערכת המובנית, לא רק על קובץ שהועלה
+        enforcePersonalBlocks();
         // חותמת המערכת המובנית. override ישן יותר (תשפ"ו) מוזנח אוטומטית,
         // אחרת הוא היה דורס את מערכת תשפ"ז שמוטמעת כאן.
         const BUILTIN_SCHEDULE_STAMP = Date.parse('2026-08-16T00:00:00Z');
@@ -4418,6 +4445,16 @@
                 a.teacher === teacher && a.day === dayIdx && !a.forNextWeek && adj.includes(a.hour));
         }
 
+        // כלל הצלבה: מי שכבר שובץ למלא מקום בשיעור צמוד להפסקה כבר "נלקח"
+        // על ידי המערכת השנייה. שתי המערכות רצות במקביל על אותם אנשים, ובלי
+        // הבדיקה הזו אותו מלמד היה מקבל גם שיעור וגם תורנות באותו זמן.
+        function yardCoveringLesson(teacher, dayIdx, slot) {
+            const adj = YARD_ADJACENT[slot] || [];
+            const hit = Object.values(absencesData).find(a =>
+                a.substitute === teacher && a.day === dayIdx && adj.includes(a.hour));
+            return hit ? { teacher: hit.teacher, hour: hit.hour } : null;
+        }
+
         // מי ממלא את מקומו בשיעור הצמוד להפסקה (מתוך שיבוץ מילוי המקום)
         function yardLessonSubstitute(teacher, dayIdx, slot) {
             const adj = YARD_ADJACENT[slot] || [];
@@ -4439,13 +4476,15 @@
 
                 const cands = ((YARD_SUBS[d.key] || {}).cands || []);
                 const free = cands.filter(c =>
-                    !taken.has(d.slot + '|' + c.name) && !yardAbsentAt(c.name, dayIdx, d.slot));
+                    !taken.has(d.slot + '|' + c.name) && !yardAbsentAt(c.name, dayIdx, d.slot)
+                    && !yardCoveringLesson(c.name, dayIdx, d.slot));
 
                 // שיבוץ ידני שנקבע קודם — מכבדים אותו
                 const manual = yardSwapsData[d.key];
                 if (manual && manual.cover) {
                     taken.add(d.slot + '|' + manual.cover);
-                    return { ...d, status: 'manual', cover: manual.cover, repay: manual.repay || null, options: free };
+                    return { ...d, status: 'manual', cover: manual.cover, repay: manual.repay || null,
+                             options: free, clash: yardCoveringLesson(manual.cover, dayIdx, d.slot) };
                 }
 
                 if (free.length) {
@@ -4536,6 +4575,9 @@
 
                 const msg = `שלום ${p.cover || ''}, ${p.toran} נעדר היום ולכן התורנות של ${p.slot} ב${p.post} עוברת אליך. תודה רבה!`;
                 const contact = p.cover ? getContactButtonsHTML(p.cover, msg) : '';
+                const clashTxt = p.clash
+                    ? `<div class="yard-clash">⚠️ ${p.cover} כבר ממלא מקום ל${p.clash.teacher} בשעה ${p.clash.hour}</div>`
+                    : '';
                 const repayTxt = p.repay
                     ? `<div class="yard-repay">↩️ ${p.toran} יחזיר ל${p.cover}: <strong>${yardFmt(p.repay)}</strong></div>`
                     : (p.cover ? '<div class="yard-repay yard-repay-none">↩️ אין תורנות שאפשר להחזיר בה — לסכם ידנית</div>' : '');
@@ -4547,6 +4589,7 @@
                         <div class="yard-absent">${p.toran} — נעדר</div>
                         <div class="yard-cover">${p.cover ? '➜ <strong>' + p.cover + '</strong>' : '➜ טרם נמצא מחליף'}</div>
                         ${repayTxt}
+                        ${clashTxt}
                     </div>
                     <div class="yard-status">
                         ${badge}

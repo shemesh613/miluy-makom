@@ -35,9 +35,9 @@ const D = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'ש
         .map(t => ({ t, busy: has(t, 0, '6'), cls: cls(t, 0, '6') })),
       // 5. תורנות: שתי השורות שהשתנו
       duty: {
-        saraSun1210: YARD_DUTY['12:10|ראשון|מסדרון ונספחיו'],
-        saraThu1210corr: YARD_DUTY['12:10|חמישי|מסדרון ונספחיו'],
-        saraThu1210yard: YARD_DUTY['12:10|חמישי|חצר'],
+        saraSun1210: YARD_DUTY['12:10|ראשון|דשא (למטה)'],
+        saraThu1210corr: YARD_DUTY['12:10|חמישי|דשא (למטה)'],
+        saraThu1210yard: YARD_DUTY['12:10|חמישי|מגרש (למעלה)'],
       },
       // 6. שינויי כיתות שהוזכרו
       avigdorSun5: cls('הרב אביגדור', 0, '5'),        // נביא ב1 עבר לראשון שעה 5
@@ -60,9 +60,9 @@ const D = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'ש
   console.log('\n4. הדרכה ראשון שעה 6 (צריך: תפוס, בלי כיתה):');
   r.hadracha6.forEach(x => console.log(`   ${x.t}: תפוס=${yn(x.busy)} כיתה=${x.cls || '— ✓'}`));
   console.log('\n5. תורנות שהשתנו:');
-  console.log("   ראשון 12:10 מסדרון:", r.duty.saraSun1210, '(צריך: לאה)');
-  console.log("   חמישי 12:10 מסדרון:", r.duty.saraThu1210corr, "(צריך: שרה תורג'מן)");
-  console.log('   חמישי 12:10 חצר:', r.duty.saraThu1210yard);
+  console.log("   ראשון 12:10 דשא:", r.duty.saraSun1210, '(צריך: לאה)');
+  console.log("   חמישי 12:10 דשא:", r.duty.saraThu1210corr, "(צריך: שרה תורג'מן)");
+  console.log('   חמישי 12:10 מגרש:', r.duty.saraThu1210yard);
   console.log('\n6. שיעורים שזזו:');
   console.log('   אביגדור ראשון 5 =', r.avigdorSun5, '(צריך ב1)');
   console.log('   בישמוט ראשון 6 =', r.bishmutSun6, '(צריך ו2)');
