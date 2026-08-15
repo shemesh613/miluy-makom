@@ -69,7 +69,9 @@ CONTACTS = """        const teacherContacts = {
             'הרב משה חיים נתן': { phone: '0527146707', method: 'call', only: ['call'], email: 'm0527146707@gmail.com' },
             'הרב ליאור (סייע)': { phone: '0543032836', method: 'sms', only: ['sms', 'call'] },
             'הרב אורי אסייג (סייע)': { phone: '0506516642', method: 'sms', only: ['sms', 'call'] },
-            // ⚠️ עדיין חסר: המורה רבקי.
+            // רבקי עמאר — נוספה לרשימת התפוצה ב-14.8. מייל בלבד;
+            // `only: []` מונע כפתורי טלפון שבורים עד שיתקבל מספר.
+            'המורה רבקי': { method: 'email', only: [], email: 'rivkiamar5@gmail.com' },
         };
 
         // מלמדים שאינם בתשפ"ז — נשמר כדי לא לאבד מספרים אם יחזרו
@@ -91,7 +93,7 @@ sub(r'(?=        // ===== Schedule file upload & override)', YARD,
 # ---------- 4. שמירה על העדפת המערכת המובנית ----------
 STAMP = """        // חותמת המערכת המובנית. override ישן יותר (תשפ"ו) מוזנח אוטומטית,
         // אחרת הוא היה דורס את מערכת תשפ"ז שמוטמעת כאן.
-        const BUILTIN_SCHEDULE_STAMP = Date.parse('2026-08-07T00:00:00Z');
+        const BUILTIN_SCHEDULE_STAMP = Date.parse('2026-08-16T00:00:00Z');
         const BUILTIN_SCHEDULE_YEAR = 'תשפ"ז';
 
         function isStaleOverride(o) {
@@ -244,7 +246,7 @@ sub(r'        function updateYardBadge\(\) \{',
         function updateMissingContacts() {
             const el = document.getElementById('missing-contacts');
             if (!el) return;
-            const missing = allTeachers.filter(t => !teacherContacts[t]);
+            const missing = allTeachers.filter(t => !(teacherContacts[t] || {}).phone);
             el.innerHTML = missing.length
                 ? `<div style="padding:10px 12px; background:#fdf3e0; border:1px solid rgba(178,106,0,0.3); border-radius:10px; color:#8a5300;">
                      ⚠️ חסרים פרטי קשר ל־<strong>${missing.length}</strong> מהצוות: ${missing.join(', ')}.<br>

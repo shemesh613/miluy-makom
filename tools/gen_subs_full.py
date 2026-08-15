@@ -19,24 +19,27 @@ finally:
     _s.close()
 
 DAYS, POOL = bt.DAYS, bt.POOL
-assign, gate = bt.assign, bt.gate
 
-# --- verify we reproduced exactly the published roster -----------------------
+# ---------------------------------------------------------------------------
+# הלוח המפורסם הוא מקור האמת — לא בונים אותו מחדש.
+# build_toranut משמש כאן רק לכללי הכשירות (can / span / אילוצים), שמחושבים
+# מקובץ המערכת העדכני. בנייה מחדש הייתה מטלטלת את כל הלוח בגלל כמה שיעורים
+# שזזו, והלוח כבר חולק למלמדים.
+# ---------------------------------------------------------------------------
 pub_assign = json.load(open('assign.json', encoding='utf-8'))
 pub_gate = json.load(open('gate.json', encoding='utf-8'))
-mine_assign = {'%s|%s|%s' % k: v for k, v in assign.items()}
-mine_gate = {'%s|%s' % k: v for k, v in gate.items()}
-if mine_assign != pub_assign or mine_gate != pub_gate:
-    diff = [k for k in set(mine_assign) | set(pub_assign)
-            if mine_assign.get(k) != pub_assign.get(k)]
-    print('!! השיבוץ שנוצר שונה מהמפורסם. הפרשים:', diff[:10])
-    sys.exit(1)
-print('✓ השיבוץ זהה למערכת התורנות שפורסמה (%d משבצות + %d שער)'
-      % (len(assign), len(gate)))
 
-ALL = dict(assign)
-for (d, tm), w in gate.items():
-    ALL[(tm, d, 'שער')] = w
+ALL = {tuple(k.split('|')): v for k, v in pub_assign.items()}
+for k, v in pub_gate.items():
+    d, tm = k.split('|')
+    ALL[(tm, d, 'שער')] = v
+print('נטען הלוח המפורסם: %d משבצות + %d שער' % (len(pub_assign), len(pub_gate)))
+
+# כמה הלוח המפורסם שונה מבנייה טרייה — אינפורמטיבי בלבד
+fresh = {'%s|%s|%s' % k: v for k, v in bt.assign.items()}
+drift = [k for k in set(fresh) | set(pub_assign) if fresh.get(k) != pub_assign.get(k)]
+if drift:
+    print('  (בנייה טרייה הייתה משנה %d משבצות — לא נוגעים בלוח המפורסם)' % len(drift))
 
 duties = defaultdict(list)
 for k, w in ALL.items():
@@ -67,6 +70,16 @@ def repay_options(absentee, sub, skip_day):
     return ['%s|%s|%s' % k for k in duties[sub]
             if k[1] != skip_day and feasible(absentee, k)]
 
+
+# הבדיקה שבאמת חשובה: האם כל תורנות בלוח המפורסם עדיין חוקית לפי המערכת
+# החדשה. זה מה שתופס תורן שהשיעור שלו זז ועכשיו הוא בכלל לא בבית הספר.
+illegal = [(k, w) for k, w in ALL.items() if not feasible(w, k)]
+if illegal:
+    print('\n⚠️  %d תורנויות בלוח המפורסם אינן חוקיות לפי המערכת החדשה:' % len(illegal))
+    for (tm, d, post), w in illegal:
+        print('   %s %s %s — %s' % (d, tm, post, w))
+else:
+    print('✓ כל התורנויות בלוח המפורסם חוקיות לפי המערכת החדשה')
 
 N_CANDS = 5
 sub_count = defaultdict(int)

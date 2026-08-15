@@ -6,7 +6,7 @@ import openpyxl
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-XLSX = r"C:\Users\user\AppData\Local\Temp\claude\C--Users-user\a8680844-0fb9-46e3-9fe1-90977275f04e\scratchpad\files2\19fd6d6d22751ce6__מערכת תשפז למלמדים.xlsx"
+XLSX = r"maarechet_14-8.xlsx"   # מערכת תשפ"ז, עדכון 14.8.26 (מחליף את זו מ-6.8)
 
 ALIASES = {'הרב שימשון': 'הרב שמשון'}
 CLASS_TOKEN = re.compile(r'^[א-ח][12]?$')
@@ -32,9 +32,22 @@ def sheet_rows(ws):
     return rows
 
 
-# פעילויות שאינן שיעור עם כיתה. השעה נחשבת תפוסה (המלמד לא פנוי למילוי מקום),
-# אבל אסור לשייך לה כיתה — "י. מחנכים" היא ישיבת מחנכים, לא שיעור.
-NON_CLASS = {'י. מחנכים', 'ישיבת מחנכים', 'י.מחנכים'}
+# פעילויות שאינן שיעור עם כיתה. השעה **תפוסה** — המלמד לא פנוי למלא מקום —
+# אבל אסור לשייך לה כיתה: אין כיתה שמחכה, ולכן גם אם הוא נעדר אין מה לכסות.
+# ההיגיון כאן הפוך מזה של תורנות חצר: שם "הדרכה" אינה חוסמת (כלל קבוצת הגיל
+# קיים רק בגלל איפה הילדים נמצאים, ובהדרכה אין ילדים) — כאן היא כן חוסמת.
+NON_CLASS_PREFIXES = (
+    'י. מחנכים', 'ישיבת מחנכים', 'י.מחנכים',   # ישיבת צוות
+    'הדרכה',                                    # הדרכת מלמדים
+    'גנים',                                     # ליווי הגנים (חדש ב-14.8)
+    'קב"ש',                                     # קבלת שבת — גם "קב\"ש ב2"
+    'ס. משנה', 'סדר משנה', 'ס. ערב', 'סדר ערב',  # סדרים
+)
+
+
+def is_non_class(cell):
+    c = str(cell).strip()
+    return any(c.startswith(p) for p in NON_CLASS_PREFIXES)
 
 
 def parse_schedule(rows):
@@ -52,7 +65,7 @@ def parse_schedule(rows):
                     blocks.append((c - 1, name))
         end = header_rows[si + 1] - 1 if si + 1 < len(header_rows) else len(rows)
         for col, name in blocks:
-            a = acc.setdefault(name, {'dayHours': {}, 'hourClasses': {}, 'meetings': set()})
+            a = acc.setdefault(name, {'dayHours': {}, 'hourClasses': {}, 'meetings': set(), 'nonclass': set()})
             for i in range(hr + 1, end):
                 row = rows[i] if i < len(rows) else []
                 raw = row[col] if col < len(row) else ''
@@ -71,8 +84,10 @@ def parse_schedule(rows):
                     if label is None:
                         continue
                     a['dayHours'].setdefault(d, set()).add(label)
-                    if cell in NON_CLASS:
-                        a['meetings'].add((d, label))
+                    if is_non_class(cell):
+                        a['nonclass'].add((d, label))
+                        if str(cell).strip().startswith(('י. מחנכים', 'ישיבת מחנכים', 'י.מחנכים')):
+                            a['meetings'].add((d, label))
                         continue
                     cls = extract_class(cell)
                     if cls:
@@ -90,7 +105,8 @@ def parse_schedule(rows):
             day_classes[d] = sorted(bases)
         out[name] = {'days': days, 'dayHours': day_hours, 'dayClasses': day_classes,
                      'hourClasses': data['hourClasses'],
-                     'meetings': sorted('%s|%s' % m for m in data['meetings'])}
+                     'meetings': sorted('%s|%s' % m for m in data['meetings']),
+                     'nonclass': sorted('%s|%s' % m for m in data['nonclass'])}
     return out
 
 
@@ -134,7 +150,7 @@ for name, t in parsed.items():
     cls = own.get(name)
     if not cls:
         continue
-    meets = set(t['meetings'])
+    meets = set(t['nonclass'])
     for d in t['days']:
         hc = t['hourClasses'].setdefault(d, {})
         for h in t['dayHours'][d]:
