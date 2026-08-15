@@ -58,7 +58,7 @@ const FILE = 'file:///' + path.resolve(__dirname, 'miluy-makom/index.html').repl
       .map(p => ({ slot: p.slot, post: p.post, toran: p.toran, cover: p.cover, status: p.status }));
 
     // תרחיש קיצון: כל המועמדים נעדרים -> נפילה לממלא המקום
-    const key = '10:05|ראשון|חצר';
+    const key = '10:05|ראשון|מגרש (למעלה)';
     const all = (YARD_SUBS[key].cands || []).map(c => c.name);
     all.forEach((nm, i) => {
       absencesData['x' + i] = { teacher: nm, day: 0, hour: 'בוקר' };
