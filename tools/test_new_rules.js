@@ -27,14 +27,14 @@ const D = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'ש
     // כבר שובץ למלא מקום בשעה צמודה
     currentDay = 0;
     absencesData = {
-      a1: { teacher: 'הרב ינון', day: 0, hour: 'בוקר', reason: 'מחלה', substitute: '' },
+      a1: { teacher: 'הרב אלי', day: 0, hour: 'בוקר', reason: 'מחלה', substitute: '' },
     };
     const before = yardCoverPlan(0).find(x => x.status !== 'ok');
     const chosen = before && before.cover;
 
     // עכשיו אותו אדם משובץ למלא מקום בשעה 'בוקר' (צמודה ל-10:05)
-    absencesData.a2 = { teacher: 'הרב פורת', day: 0, hour: 'בוקר', reason: 'מחלה', substitute: chosen };
-    const after = yardCoverPlan(0).find(x => x.status !== 'ok' && x.toran === 'הרב ינון');
+    absencesData.a2 = { teacher: 'הרב שמואל', day: 0, hour: 'בוקר', reason: 'מחלה', substitute: chosen };
+    const after = yardCoverPlan(0).find(x => x.status !== 'ok' && x.toran === 'הרב אלי');
 
     absencesData = {};
     return {

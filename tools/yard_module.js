@@ -19,7 +19,8 @@
         };
         const YARD_SLOT_ORDER = ['10:05', '10:20', '11:20', '12:10', '13:15', '13:30', '15:15', 'סוף יום'];
 
-        let yardSwapsData = {};   // dutyKey -> { cover, repay, mode, at }
+        // yardSwapsData מוצהר למעלה עם שאר נתוני הריצה — loadFromLocalStorage
+        // רץ לפני הנקודה הזו, והצהרה כאן הייתה גורמת לשגיאת TDZ.
 
         const yardParse = k => { const [slot, day, post] = k.split('|'); return { slot, day, post }; };
         const yardFmt = k => { const p = yardParse(k); return `יום ${p.day}, ${p.slot} — ${p.post}`; };

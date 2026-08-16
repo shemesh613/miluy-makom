@@ -128,6 +128,12 @@ sub(r"""            const cachedOverride = localStorage\.getItem\('scheduleOverr
                 } catch (e) { console.error('Bad cached scheduleOverride', e); }
             }""", 'התעלמות מ-override ישן (localStorage)')
 
+# ---------- 4ב. הצהרה מוקדמת ל-yardSwaps (נטען לפני מודול התורנות) ----------
+sub(r'        let tripExemptionsData = \{\}; // Teachers exempted from mandatory trip substitution: \{day: \{teacher: true\}\}',
+    '        let tripExemptionsData = {}; // Teachers exempted from mandatory trip substitution: {day: {teacher: true}}\n'
+    '        let yardSwapsData = {};      // dutyKey -> { cover, repay, mode, at } — חילופי תורנות חצר',
+    'הצהרת yardSwapsData מוקדמת')
+
 # ---------- 5. מאזין Firebase לחילופי תורנות ----------
 sub(r"""            database\.ref\('tripExemptions'\)\.on\('value', \(snapshot\) => \{""",
     """            database.ref('yardSwaps').on('value', (snapshot) => {
@@ -204,6 +210,9 @@ sub(r'(?=        // Pristine copies of the built-in schedule)',
         // בהמשך לא תחזיר אותו לרשימת הפנויים.
         const PERSONAL_BLOCKS = {
             'הרב ינון': { hours: ['4', '5'], reason: 'יוצא מהמתחם 10:05–12:30' },
+            // מגיע ב-10:05 רק לתורנות החצר בהפסקה; לפני כן אינו בבניין.
+            // בשעה 4 עצמה הוא מלמד נביא ו1 — אין זמינות חדשה למילוי מקום.
+            'הרב פורת': { hours: ['בוקר'], days: [0, 3], reason: 'אינו בבניין לפני 10:05' },
         };
 
         function enforcePersonalBlocks() {
@@ -212,6 +221,7 @@ sub(r'(?=        // Pristine copies of the built-in schedule)',
                 const t = teacherSchedule[name];
                 if (!t) return;
                 (t.days || []).forEach(d => {
+                    if (rule.days && !rule.days.includes(d)) return;
                     const hours = t.dayHours[d] || (t.dayHours[d] = []);
                     rule.hours.forEach(h => { if (!hours.includes(h)) hours.push(h); });
                     hours.sort((a, b) => order.indexOf(a) - order.indexOf(b));
