@@ -1060,6 +1060,19 @@
             .yard-post { grid-column:2; } .yard-who, .yard-status { grid-column:1 / -1; }
             .yard-status { align-items:flex-start; }
         }
+        .res-box { border:1px solid #e4e7ec; border-radius:12px; padding:14px; margin-bottom:14px; }
+        .res-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+        .res-sum { display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 6px; font-size:0.9rem; }
+        .res-ok { color:#2e7d5b; } .res-none { color:#c62828; }
+        .res-load { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+        .res-chip { background:#eef2f7; border-radius:999px; padding:2px 10px; font-size:0.82rem; }
+        .res-over { background:#fdecec; color:#c62828; font-weight:600; }
+        .res-tbl { width:100%; border-collapse:collapse; font-size:0.88rem; }
+        .res-tbl th, .res-tbl td { border:1px solid #e4e7ec; padding:5px 8px; text-align:right; }
+        .res-tbl th { background:rgba(128,128,128,0.08); }
+        .res-tbl tr.res-gap td { background:#fff8f4; }
+        .res-tbl select { width:100%; padding:3px; border-radius:6px; }
+        .muted { color:#8b93a0; }
     </style>
 </head>
 <body>
@@ -1103,6 +1116,7 @@
                 <button class="nav-tab" data-page="report">📝 דיווח היעדרות</button>
                 <button class="nav-tab" data-page="trip">🚌 טיולים</button>
                 <button class="nav-tab" data-page="substitute">🔄 מילוי מקום</button>
+                <button class="nav-tab" data-page="reserve">🎖️ מילואים</button>
                 <button class="nav-tab" data-page="yard">🏫 תורנות חצר <span id="yard-badge" class="yard-badge" style="display:none"></span></button>
                 <button class="nav-tab" data-page="suggestions">📖 הנחיות</button>
                 <button class="nav-tab" data-page="settings">⚙️ הגדרות</button>
@@ -1391,6 +1405,25 @@
             </div>
         </div>
 
+        <!-- Reserve duty page -->
+        <div id="page-reserve" class="page">
+            <div class="card">
+                <h2><span class="icon">🎖️</span> מצב מילואים</h2>
+                <p style="color:#6e7482; margin:6px 0 14px;">
+                    היעדרות ממושכת מחולקת מראש בין כמה מלמדים במקום לחפש מחליף כל בוקר.
+                    אף אחד לא לוקח יותר ממחצית מהשיעורים, והזמינות נבדקת מול המערכת בפועל —
+                    &quot;מחליף בבקרים&quot; לא אומר שהוא פנוי בכל שעה.
+                </p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+                    <select id="reserve-teacher" style="padding:8px; border-radius:8px;"></select>
+                    <input id="reserve-preferred" placeholder="מחליפים מועדפים, מופרדים בפסיק"
+                           style="padding:8px; border-radius:8px; min-width:260px;">
+                    <button class="btn btn-primary" onclick="reserveAdd()">➕ הכנס למילואים</button>
+                </div>
+                <div id="reserve-list"></div>
+            </div>
+        </div>
+
         <div id="page-suggestions" class="page">
             <div class="card" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800;">
                 <h2 style="color: #e65100;"><span class="icon">📖</span> הנחיות למחליפים - יום <span id="suggestions-day-name"></span></h2>
@@ -1586,7 +1619,7 @@
             'הרב פורת': { days: [0, 3], dayHours: { 0: ['בוקר','4','5','6','7','8'], 3: ['בוקר','4','5','6','7','8'] }, dayClasses: { 0: ['ג','ו'], 3: ['ג','ו'] } },
             'הרב צבי': { days: [1, 2, 3, 4, 5], dayHours: { 1: ['בוקר','4','5'], 2: ['בוקר','4','5','6','7','8','9'], 3: ['בוקר','4','5','7','8'], 4: ['בוקר','4','5','6','7','8'], 5: ['בוקר','4','5'] }, dayClasses: { 1: ['ג','ו'], 2: ['ג','ד','ה','ו','ז','ח'], 3: ['ג','ה','ו','ז','ח'], 4: ['ג','ד','ה','ז','ח'], 5: ['ג'] } },
             'הרב צביקה': { days: [0, 1, 2, 3, 4], dayHours: { 0: ['7'], 1: ['7','8'], 2: ['7'], 3: ['7','8'], 4: ['7','8'] }, dayClasses: { 0: ['ז'], 1: ['ג','ו'], 2: ['ו'], 3: ['ה','ח'], 4: ['ד','ו'] } },
-            'הרב שלומי': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר','4','5','6'], 1: ['בוקר','4','5','6'], 2: ['בוקר','4','5','6','7'], 3: ['בוקר','4','5','6'], 4: ['בוקר','6','7','8'], 5: ['בוקר','4','5'] }, dayClasses: { 0: ['א','ד'], 1: ['א','ד'], 2: ['א','ד'], 3: ['א','ד'], 4: ['א'], 5: ['א'] } },
+            'הרב שלומי': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר','4','5','6','7'], 1: ['בוקר','4','5','6','7'], 2: ['בוקר','4','5','6','7'], 3: ['בוקר','4','5','6','7'], 4: ['בוקר','4','5','6','7','8'], 5: ['בוקר','4','5','7'] }, dayClasses: { 0: ['א','ד'], 1: ['א','ד'], 2: ['א','ד'], 3: ['א','ד'], 4: ['א'], 5: ['א'] } },
             'הרב שמואל': { days: [0, 2, 4], dayHours: { 0: ['4','5','6','7','8','9','10'], 2: ['4','5','6','7','8'], 4: ['4','5','6','7','8','9'] }, dayClasses: { 0: ['ד','ה','ו','ז','ח'], 2: ['ד','ה','ו'], 4: ['ד','ה','ו','ז'] } },
             'הרב שמשון': { days: [0, 1, 2, 3, 4, 5], dayHours: { 0: ['בוקר','4'], 1: ['בוקר'], 2: ['בוקר','7'], 3: ['בוקר'], 4: ['בוקר'], 5: ['בוקר','4','5'] }, dayClasses: { 0: ['ג'], 1: ['ג'], 2: ['ג'], 3: ['ג'], 4: ['ג'], 5: ['ג'] } },
             'חגית': { days: [0, 1, 2, 3, 4], dayHours: { 0: ['6','7','8'], 1: ['4','6'], 2: ['4','5','6'], 3: ['6','7','8'], 4: ['4','6'] }, dayClasses: { 0: ['א'], 1: ['א'], 2: ['א'], 3: ['א'], 4: ['א'] } },
@@ -1660,12 +1693,17 @@
             // מגיע ב-10:05 רק לתורנות החצר בהפסקה; לפני כן אינו בבניין.
             // בשעה 4 עצמה הוא מלמד נביא ו1 — אין זמינות חדשה למילוי מקום.
             'הרב פורת': { hours: ['בוקר'], days: [0, 3], reason: 'אינו בבניין לפני 10:05' },
+            // אישר בעצמו 17.8: הגן נמשך מעבר ל-13:15 (שעה 6 = גנים כבר בקובץ)
+            'הרב שלומי': { hours: ['7'], reason: 'עדיין בגן ב-13:15' },
+            // חמישי 4–5: יוצא לקניות — בקובץ זה נראה כשעת חלון
+            'הרב שלומי חמישי': { teacher: 'הרב שלומי', hours: ['4', '5'], days: [4],
+                                 reason: 'חמישי 4–5 — יוצא לקניות' },
         };
 
         function enforcePersonalBlocks() {
             const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
-            Object.entries(PERSONAL_BLOCKS).forEach(([name, rule]) => {
-                const t = teacherSchedule[name];
+            Object.entries(PERSONAL_BLOCKS).forEach(([key, rule]) => {
+                const t = teacherSchedule[rule.teacher || key];
                 if (!t) return;
                 (t.days || []).forEach(d => {
                     if (rule.days && !rule.days.includes(d)) return;
@@ -1676,9 +1714,12 @@
             });
         }
 
-        function personalBlockReason(teacher, hour) {
-            const r = PERSONAL_BLOCKS[teacher];
-            return (r && r.hours.includes(hour)) ? r.reason : null;
+        // day אופציונלי — חסימה שמוגבלת לימים מסוימים לא חלה על שאר הימים
+        function personalBlockReason(teacher, hour, day) {
+            const hit = Object.entries(PERSONAL_BLOCKS).find(([key, r]) =>
+                (r.teacher || key) === teacher && r.hours.includes(hour) &&
+                (day === undefined || !r.days || r.days.includes(day)));
+            return hit ? hit[1].reason : null;
         }
 
         function isMechanechMeeting(day, hour) {
@@ -1947,6 +1988,7 @@
         let unlockedDaysData = {}; // Days manually unlocked by admin
         let tripExemptionsData = {}; // Teachers exempted from mandatory trip substitution: {day: {teacher: true}}
         let yardSwapsData = {};      // dutyKey -> { cover, repay, mode, at } — חילופי תורנות חצר
+        let reserveData = {};        // מלמד -> { since, preferred, cover } — מצב מילואים
         let settingsUnlocked = false;
         const SETTINGS_PASSWORD = '123456';
         const LOCKOUT_HOUR = 22;
@@ -2475,6 +2517,17 @@
                 updateLockedNotice();
             });
 
+            database.ref('reserve').on('value', (snapshot) => {
+                const raw = snapshot.val() || {};
+                reserveData = {};
+                Object.entries(raw).forEach(([k, v]) => {
+                    const real = allTeachers.find(t => t.replace(/[.#$/\[\]]/g, '_') === k) || k;
+                    reserveData[real] = v;
+                });
+                updateReserve();
+                updateAllViews();
+            });
+
             database.ref('yardSwaps').on('value', (snapshot) => {
                 const raw = snapshot.val() || {};
                 yardSwapsData = {};
@@ -2513,6 +2566,7 @@
             unlockedDaysData = JSON.parse(localStorage.getItem('unlockedDays') || '{}');
             tripExemptionsData = JSON.parse(localStorage.getItem('tripExemptions') || '{}');
             yardSwapsData = JSON.parse(localStorage.getItem('yardSwaps') || '{}');
+            reserveData = JSON.parse(localStorage.getItem('reserve') || '{}');
             const cachedOverride = localStorage.getItem('scheduleOverride');
             if (cachedOverride) {
                 try {
@@ -3483,6 +3537,8 @@
             updateHonorBoard();
             updateYardDuty();
             updateMissingContacts();
+            populateReserveSelect();
+            updateReserve();
         }
 
         // Update trip notice
@@ -4644,6 +4700,191 @@
             navigator.clipboard.writeText(txt)
                 .then(() => alert('✅ הועתק ללוח'))
                 .catch(() => prompt('העתק:', txt));
+        }
+
+
+        /* ==================== מצב מילואים ====================
+           היעדרות ממושכת שונה מהיעדרות של יום. במקום לחפש מחליף כל בוקר,
+           נבנית חלוקה קבועה לכל השיעורים של הנעדר, לפי הכללים:
+             · אף אחד לא לוקח יותר ממחצית ממה שהנעדר החזיק
+             · תקרה זמנית = חצי, ורק כשאין מועמד מתחתיה מחליטים לפי עומס בלבד
+             · מי שמחליף בכיתה מקבל חלק — לא את הכל
+             · כשהוא חוזר, מחזירים את השיבוץ המקורי בלחיצה
+           ⚠️ זמינות נבדקת בפועל מול המערכת, לא נגזרת מהתפקיד: "מחליף בבקרים"
+           לא אומר שהוא פנוי בהפסקות או בשעות אחרות. */
+
+        const ALL_HOURS = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+
+        // reserveData מוצהר למעלה עם שאר נתוני הריצה (loadFromLocalStorage
+        // משתמש בו לפני הנקודה הזו) — teacher -> { since, preferred, cover }
+
+        const isOnReserve = t => !!reserveData[t];
+
+        // כל השיעורים שהנעדר מחזיק (רק שעות עם כיתה — שעה בלי כיתה אינה צריכה כיסוי)
+        function reserveSlots(teacher) {
+            const t = teacherSchedule[teacher];
+            if (!t) return [];
+            const out = [];
+            (t.days || []).forEach(d => {
+                (t.dayHours[d] || []).forEach(h => {
+                    const cls = (dayHourClassesData[teacher] || {})[d];
+                    if (cls && cls[h]) out.push({ day: d, hour: h, cls: cls[h], key: d + '|' + h });
+                });
+            });
+            return out;
+        }
+
+        // האם המלמד באמת פנוי אז — לפי המערכת, לא לפי התפקיד
+        function freeAt(teacher, day, hour) {
+            if (teacher === undefined || isOnReserve(teacher)) return false;
+            const t = teacherSchedule[teacher];
+            if (!t || !(t.days || []).includes(day)) return false;   // לא בביה"ס באותו יום
+            return !(t.dayHours[day] || []).includes(hour);          // שעה תפוסה = לא פנוי
+        }
+
+        function weeklyLoad(teacher) {
+            const t = teacherSchedule[teacher];
+            if (!t) return 0;
+            return (t.days || []).reduce((s, d) => s + (t.dayHours[d] || []).length, 0);
+        }
+
+        // בונה את החלוקה. preferred = מי שהוגדר כמחליף בכיתה, מקבל עדיפות אך לא הכל.
+        function buildReservePlan(teacher, preferred) {
+            const slots = reserveSlots(teacher);
+            const half = Math.floor(slots.length / 2);      // תקרה: אף אחד לא מעל מחצית
+            const count = {};
+            const plan = {};
+            const pref = (preferred || []).filter(Boolean);
+
+            slots.forEach(s => {
+                const avail = allTeachers.filter(c => c !== teacher && freeAt(c, s.day, s.hour));
+                if (!avail.length) { plan[s.key] = null; return; }
+
+                const score = c => [
+                    pref.includes(c) ? 0 : 1,      // עדיפות למחליף בכיתה
+                    count[c] || 0,                  // לפזר
+                    weeklyLoad(c),                  // מי שעמוס פחות
+                    c,
+                ];
+                const under = avail.filter(c => (count[c] || 0) < half);
+                // כשאין אף מועמד מתחת לתקרה — מחליטים לפי עומס בלבד
+                const pool = under.length ? under : avail;
+                const cmp = under.length
+                    ? (a, b) => String(score(a)) < String(score(b)) ? -1 : 1
+                    : (a, b) => (count[a] || 0) - (count[b] || 0) || weeklyLoad(a) - weeklyLoad(b);
+                const pick = [...pool].sort(cmp)[0];
+                plan[s.key] = pick;
+                count[pick] = (count[pick] || 0) + 1;
+            });
+            return { slots, plan, count, half };
+        }
+
+        function reserveAdd() {
+            const teacher = document.getElementById('reserve-teacher').value;
+            if (!teacher) return;
+            const raw = document.getElementById('reserve-preferred').value.trim();
+            const preferred = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+            const { plan } = buildReservePlan(teacher, preferred);
+            reserveSave(teacher, {
+                since: new Date().toISOString().slice(0, 10),
+                preferred, cover: plan,
+            });
+        }
+
+        function reserveSave(teacher, rec) {
+            reserveData[teacher] = rec;
+            const key = teacher.replace(/[.#$/\[\]]/g, '_');
+            if (isOnline && database) database.ref('reserve/' + key).set(rec);
+            else localStorage.setItem('reserve', JSON.stringify(reserveData));
+            updateReserve();
+            updateAllViews();
+        }
+
+        function reserveRemove(teacher) {
+            if (!confirm(`${teacher} חוזר — להחזיר את השיבוץ המקורי?`)) return;
+            delete reserveData[teacher];
+            const key = teacher.replace(/[.#$/\[\]]/g, '_');
+            if (isOnline && database) database.ref('reserve/' + key).remove();
+            else localStorage.setItem('reserve', JSON.stringify(reserveData));
+            updateReserve();
+            updateAllViews();
+        }
+
+        function reserveSetCover(teacher, slotKey, who) {
+            const rec = reserveData[teacher];
+            if (!rec) return;
+            rec.cover = { ...rec.cover, [slotKey]: who || null };
+            reserveSave(teacher, rec);
+        }
+
+        // מי מכסה שיעור מסוים של מלמד במילואים (לשימוש שאר המסכים)
+        function reserveCoverFor(teacher, day, hour) {
+            const rec = reserveData[teacher];
+            return rec && rec.cover ? (rec.cover[day + '|' + hour] || null) : null;
+        }
+
+        function updateReserve() {
+            const el = document.getElementById('reserve-list');
+            if (!el) return;
+            const names = Object.keys(reserveData);
+            if (!names.length) {
+                el.innerHTML = '<div class="empty-state">אין כרגע אף מלמד במילואים.</div>';
+                return;
+            }
+            el.innerHTML = names.map(teacher => {
+                const rec = reserveData[teacher];
+                const slots = reserveSlots(teacher);
+                const cover = rec.cover || {};
+                const count = {};
+                Object.values(cover).forEach(c => { if (c) count[c] = (count[c] || 0) + 1; });
+                const half = Math.floor(slots.length / 2);
+                const gaps = slots.filter(s => !cover[s.key]).length;
+
+                const rows = slots.map(s => {
+                    const who = cover[s.key];
+                    const avail = allTeachers.filter(c => c !== teacher && freeAt(c, s.day, s.hour));
+                    const opts = ['<option value="">— לא שובץ —</option>']
+                        .concat(avail.map(c => `<option value="${c}"${c === who ? ' selected' : ''}>${c}${(count[c] || 0) > half ? ' ⚠️' : ''}</option>`))
+                        .join('');
+                    const stale = who && !avail.includes(who);
+                    return `<tr class="${who ? '' : 'res-gap'}">
+                        <td>${dayNames[s.day]}</td><td>שעה ${s.hour}</td><td><strong>${s.cls}</strong></td>
+                        <td><select onchange="reserveSetCover('${teacher.replace(/'/g, "\\'")}','${s.key}',this.value)">
+                            ${stale ? `<option value="${who}" selected>${who} — כבר לא פנוי</option>` : ''}${opts}
+                        </select></td>
+                        <td>${avail.length ? '' : '<span class="res-none">אין אף מועמד פנוי</span>'}</td>
+                    </tr>`;
+                }).join('');
+
+                const load = Object.entries(count).sort((a, b) => b[1] - a[1])
+                    .map(([c, n]) => `<span class="res-chip${n > half ? ' res-over' : ''}">${c}: ${n}</span>`).join(' ');
+
+                return `<div class="res-box">
+                    <div class="res-head">
+                        <div><strong>${teacher}</strong> <span class="muted">במילואים מאז ${rec.since || '—'}</span></div>
+                        <button class="btn btn-sm" onclick="reserveRemove('${teacher.replace(/'/g, "\\'")}')">↩️ חזר — החזר שיבוץ מקורי</button>
+                    </div>
+                    <div class="res-sum">
+                        <span><strong>${slots.length}</strong> שיעורים לכיסוי</span>
+                        <span>תקרה לאדם: <strong>${half}</strong> (מחצית)</span>
+                        ${gaps ? `<span class="res-none"><strong>${gaps}</strong> ללא מחליף</span>` : '<span class="res-ok">הכל מכוסה ✓</span>'}
+                    </div>
+                    <div class="res-load">${load || '<span class="muted">טרם חולק</span>'}</div>
+                    <table class="res-tbl"><thead><tr>
+                        <th>יום</th><th>שעה</th><th>כיתה</th><th>מחליף</th><th></th>
+                    </tr></thead><tbody>${rows}</tbody></table>
+                </div>`;
+            }).join('');
+        }
+
+        function populateReserveSelect() {
+            const sel = document.getElementById('reserve-teacher');
+            if (!sel) return;
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">— בחר מלמד —</option>' +
+                allTeachers.filter(t => !isOnReserve(t))
+                    .map(t => `<option value="${t}">${t}</option>`).join('');
+            if (cur) sel.value = cur;
         }
 
         // ===== Schedule file upload & override (עדכון קובץ מערכת) =====

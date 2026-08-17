@@ -213,12 +213,17 @@ sub(r'(?=        // Pristine copies of the built-in schedule)',
             // מגיע ב-10:05 רק לתורנות החצר בהפסקה; לפני כן אינו בבניין.
             // בשעה 4 עצמה הוא מלמד נביא ו1 — אין זמינות חדשה למילוי מקום.
             'הרב פורת': { hours: ['בוקר'], days: [0, 3], reason: 'אינו בבניין לפני 10:05' },
+            // אישר בעצמו 17.8: הגן נמשך מעבר ל-13:15 (שעה 6 = גנים כבר בקובץ)
+            'הרב שלומי': { hours: ['7'], reason: 'עדיין בגן ב-13:15' },
+            // חמישי 4–5: יוצא לקניות — בקובץ זה נראה כשעת חלון
+            'הרב שלומי חמישי': { teacher: 'הרב שלומי', hours: ['4', '5'], days: [4],
+                                 reason: 'חמישי 4–5 — יוצא לקניות' },
         };
 
         function enforcePersonalBlocks() {
             const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
-            Object.entries(PERSONAL_BLOCKS).forEach(([name, rule]) => {
-                const t = teacherSchedule[name];
+            Object.entries(PERSONAL_BLOCKS).forEach(([key, rule]) => {
+                const t = teacherSchedule[rule.teacher || key];
                 if (!t) return;
                 (t.days || []).forEach(d => {
                     if (rule.days && !rule.days.includes(d)) return;
@@ -229,9 +234,12 @@ sub(r'(?=        // Pristine copies of the built-in schedule)',
             });
         }
 
-        function personalBlockReason(teacher, hour) {
-            const r = PERSONAL_BLOCKS[teacher];
-            return (r && r.hours.includes(hour)) ? r.reason : null;
+        // day אופציונלי — חסימה שמוגבלת לימים מסוימים לא חלה על שאר הימים
+        function personalBlockReason(teacher, hour, day) {
+            const hit = Object.entries(PERSONAL_BLOCKS).find(([key, r]) =>
+                (r.teacher || key) === teacher && r.hours.includes(hour) &&
+                (day === undefined || !r.days || r.days.includes(day)));
+            return hit ? hit[1].reason : null;
         }
 
         function isMechanechMeeting(day, hour) {
