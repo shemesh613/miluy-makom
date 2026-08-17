@@ -172,11 +172,11 @@ async function checkAndSendDailySummary() {
     // Only send after 22:00 Israel time
     if (israelHour < 22) return;
 
+    // הסיכום נשלח ב-22:00, אבל דיווחים ממשיכים להגיע גם אחריו. במקום לחסום
+    // לגמרי אחרי השליחה הראשונה, שומרים חתימה של התוכן: אם משהו השתנה
+    // בהמשך הערב — נשלח עדכון. בלי זה, מי שדיווח ב-22:22 לא הופיע בשום מייל.
     const sentFlag = await firebaseGet('/summaryFlags/' + today);
-    if (sentFlag) {
-        console.log('Daily summary already sent today');
-        return;
-    }
+    const isUpdate = !!sentFlag;
 
     const tomorrow = (israelDay + 1) % 7;
     const targetDay = tomorrow;
@@ -225,12 +225,27 @@ async function checkAndSendDailySummary() {
     }
 
     const total = assigned.length + unassigned.length + merged.length;
+
+    // חתימת תוכן — כדי לזהות שינוי אחרי שהסיכום כבר נשלח
+    const sig = JSON.stringify({
+        d: targetDay,
+        a: assigned.map(i => `${i.teacher}|${i.hour}|${i.substitute}`).sort(),
+        u: unassigned.map(i => `${i.teacher}|${i.hour}`).sort(),
+        m: merged.map(i => `${i.teacher}|${i.hour}`).sort(),
+    });
+    if (isUpdate && sentFlag.sig === sig) {
+        console.log('Daily summary already sent and nothing changed');
+        return;
+    }
+    if (isUpdate) console.log('Summary changed since it was sent — sending an update');
+
+    const head = isUpdate ? `🔄 עדכון לסיכום ${label}` : `📊 סיכום ${label}`;
     let message;
 
     if (total === 0) {
-        message = `📊 סיכום ${label} - יום ${dayName}\n\n✅ אין היעדרויות ${label}!`;
+        message = `${head} - יום ${dayName}\n\n✅ אין היעדרויות ${label}!`;
     } else {
-        message = `📊 סיכום ${label} - יום ${dayName}\n`;
+        message = `${head} - יום ${dayName}\n`;
         message += '━━━━━━━━━━━━━━━\n\n';
         message += `📌 סה"כ היעדרויות: ${total}\n`;
         message += `✅ שובצו: ${assigned.length}\n`;
@@ -262,14 +277,14 @@ async function checkAndSendDailySummary() {
     const emailKey = 'summary_' + Date.now();
     await firebasePut(`/pendingEmails/${emailKey}`, {
         email: ADMIN_EMAIL,
-        subject: `📊 סיכום מילוי מקום ${label} - יום ${dayName}`,
+        subject: `${isUpdate ? '🔄 עדכון לסיכום' : '📊 סיכום'} מילוי מקום ${label} - יום ${dayName}`,
         reason: message,
         createdAt: Date.now()
     });
     console.log('Email summary queued');
 
-    // Mark as sent today
-    await firebasePut(`/summaryFlags/${today}`, { sent: true, time: now.toISOString() });
+    // נשמרת גם החתימה, כדי שרק שינוי אמיתי יפיק עדכון נוסף
+    await firebasePut(`/summaryFlags/${today}`, { sent: true, time: now.toISOString(), sig });
     console.log('Daily summary completed');
 }
 
