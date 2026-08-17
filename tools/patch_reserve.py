@@ -31,12 +31,6 @@ sub(r'        let yardSwapsData = \{\};      // dutyKey -> \{ cover, repay, mode
     '        let reserveData = {};        // מלמד -> { since, preferred, cover } — מצב מילואים',
     'הצהרת reserveData')
 
-# המודול מצהיר עליו שוב — להפוך להערה כדי למנוע TDZ
-sub(r'        // teacher -> \{ since, note, cover: \{ "day\|hour": teacherName \} \}\n        let reserveData = \{\};',
-    '        // reserveData מוצהר למעלה עם שאר נתוני הריצה (loadFromLocalStorage\n'
-    '        // משתמש בו לפני הנקודה הזו) — teacher -> { since, preferred, cover }',
-    'ביטול הצהרה כפולה')
-
 sub(r"            yardSwapsData = JSON\.parse\(localStorage\.getItem\('yardSwaps'\) \|\| '\{\}'\);",
     "            yardSwapsData = JSON.parse(localStorage.getItem('yardSwaps') || '{}');\n"
     "            reserveData = JSON.parse(localStorage.getItem('reserve') || '{}');",
@@ -70,16 +64,19 @@ PAGE = """        <!-- Reserve duty page -->
             <div class="card">
                 <h2><span class="icon">🎖️</span> מצב מילואים</h2>
                 <p style="color:#6e7482; margin:6px 0 14px;">
-                    היעדרות ממושכת מחולקת מראש בין כמה מלמדים במקום לחפש מחליף כל בוקר.
-                    אף אחד לא לוקח יותר ממחצית מהשיעורים, והזמינות נבדקת מול המערכת בפועל —
-                    &quot;מחליף בבקרים&quot; לא אומר שהוא פנוי בכל שעה.
+                    מזינים <strong>פעם אחת</strong> את ממלאי המקום הקבועים, והמערכת מחלקת ביניהם
+                    בלבד — גם את השיעורים וגם את תורנויות החצר — לכל תקופת המילואים.
+                    הזמינות נבדקת בפועל: משבצת שאף אחד מהם אינו יכול לקחת תסומן, יחד עם מי כן יכול.
                 </p>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
-                    <select id="reserve-teacher" style="padding:8px; border-radius:8px;"></select>
-                    <input id="reserve-preferred" placeholder="מחליפים מועדפים, מופרדים בפסיק"
-                           style="padding:8px; border-radius:8px; min-width:260px;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+                    <select id="reserve-teacher" style="padding:8px; border-radius:8px;"
+                            onchange="populateReserveSelect()"></select>
                     <button class="btn btn-primary" onclick="reserveAdd()">➕ הכנס למילואים</button>
                 </div>
+                <div style="font-size:0.9rem; color:#6e7482; margin-bottom:6px;">
+                    ממלאי המקום הקבועים לכל התקופה — סמן את כולם:
+                </div>
+                <div id="reserve-subs" class="res-picks"></div>
                 <div id="reserve-list"></div>
             </div>
         </div>
@@ -104,6 +101,10 @@ CSS = """        .res-box { border:1px solid #e4e7ec; border-radius:12px; paddin
         .res-tbl th { background:rgba(128,128,128,0.08); }
         .res-tbl tr.res-gap td { background:#fff8f4; }
         .res-tbl select { width:100%; padding:3px; border-radius:6px; }
+        .res-alt { font-size:0.78rem; color:#6e7482; margin-top:2px; }
+        .res-picks { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+        .res-pick { display:inline-flex; align-items:center; gap:5px; background:#eef2f7;
+            border-radius:8px; padding:4px 10px; font-size:0.86rem; cursor:pointer; }
         .muted { color:#8b93a0; }
     </style>"""
 sub(r'    </style>', CSS, 'עיצוב מילואים')
