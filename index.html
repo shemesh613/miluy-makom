@@ -1082,6 +1082,57 @@
         .partial-tag { display:inline-block; background:#fdf3e0; color:#8a5300;
             border:1px solid rgba(178,106,0,0.3); border-radius:999px;
             padding:0 8px; font-size:0.72rem; font-weight:600; }
+        .auto-day-notice { background:rgba(242,193,78,0.16); border:1px solid rgba(242,193,78,0.5);
+            color:#7a5b12; border-radius:10px; padding:7px 12px; margin-bottom:8px;
+            font-size:0.86rem; text-align:center; }
+        .auto-day-notice.off-auto { background:rgba(255,107,107,0.14);
+            border-color:rgba(255,107,107,0.5); color:#8c2f2f; }
+        @media (prefers-color-scheme: dark) {
+            .auto-day-notice { color:#f2d99a; }
+            .auto-day-notice.off-auto { color:#ffb3b3; }
+        }
+        @keyframes dayFlash {
+            0%,100% { box-shadow:0 0 0 0 rgba(242,193,78,0); }
+            50%     { box-shadow:0 0 0 6px rgba(242,193,78,0.55); }
+        }
+        .day-btn.day-flash { animation: dayFlash 0.9s ease-in-out 4; }
+        .top-bar { transition: padding .22s ease, background .22s ease; position: relative; }
+        .dock-toggle { position:absolute; top:6px; left:10px; z-index:3;
+            background:rgba(255,255,255,0.08); color:#e8edf7;
+            border:1px solid rgba(201,169,97,0.35); border-radius:8px;
+            width:26px; height:22px; line-height:1; cursor:pointer; font-size:13px;
+            padding:0; display:flex; align-items:center; justify-content:center; }
+        .dock-toggle:hover { background:rgba(255,255,255,0.16); }
+
+        .top-bar.compact { padding: 6px 10px 2px; }
+        .top-bar.compact .day-selector { margin-bottom: 5px; }
+        .top-bar.compact .nav-tabs { margin-bottom: 3px; gap: 5px; }
+        .top-bar.compact .day-btn { padding: 3px 10px; font-size: 0.76rem; }
+        .top-bar.compact .nav-tab { padding: 4px 10px; font-size: 0.78rem; }
+        /* בנייד הסרגל תופס הכי הרבה — שם מכווצים גם את שורת הימים */
+        @media (max-width: 620px) {
+            .top-bar.compact .day-selector { display: none; }
+            .top-bar.compact::after { content: 'הסרגל מוקטן — הקש ⌄ להרחבה';
+                display:block; text-align:center; font-size:0.68rem;
+                color:rgba(232,237,247,0.5); padding-bottom:3px; }
+        }
+        .merge-card { display:flex; justify-content:space-between; align-items:center; gap:12px;
+            padding:12px 14px; background:#fff; border:1px solid #d6e2f2;
+            border-inline-start:4px solid #1565c0; border-radius:10px; margin-bottom:8px; }
+        .merge-head { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:4px; }
+        .merge-hour { background:#1565c0; color:#fff; border-radius:6px;
+            padding:1px 9px; font-size:0.78rem; font-weight:700; }
+        .merge-absent { color:#c62828; font-size:0.86rem; }
+        .merge-what { font-size:0.93rem; color:#1c2024; line-height:1.6; }
+        .merge-row { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; margin-bottom:3px; }
+        .merge-role { background:#e7f0fa; color:#1565c0; border-radius:6px; padding:1px 8px;
+            font-size:0.75rem; font-weight:700; white-space:nowrap; }
+        .merge-role.move { background:#fdf3e0; color:#8a5300; }
+        .merge-role.none { background:#eef0f3; color:#6b7280; font-weight:600; }
+        .merge-note { color:#8a5300; font-size:0.82rem; margin-top:3px; }
+        .merge-sends { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;
+            padding-top:8px; border-top:1px dashed #dbe2ea; }
+        .merge-send { display:flex; align-items:center; gap:6px; font-size:0.82rem; color:#5a6069; }
     </style>
 </head>
 <body>
@@ -1109,7 +1160,10 @@
 
         <!-- Floating glass navigation dock -->
         <div class="top-bar">
+            <button id="dock-toggle" class="dock-toggle" onclick="toggleDock()"
+                    title="הקטן / הרחב את הסרגל" aria-label="הקטן או הרחב את הסרגל">⌃</button>
             <!-- Day selector -->
+            <div id="auto-day-notice" class="auto-day-notice" style="display:none"></div>
             <div class="day-selector">
                 <button class="day-btn" data-day="6">שבת</button>
                 <button class="day-btn" data-day="0">ראשון</button>
@@ -2002,8 +2056,44 @@
         // Global variables
         let database = null;
         let isOnline = false;
-        let currentDay = new Date().getDay(); // 0=Sunday
-        if (currentDay === 6) currentDay = 0; // If Saturday, show Sunday
+        /* ===== היום הפעיל =====
+           אחרי 22:30 כבר לא מדווחים על היום שנגמר אלא על מחר, ולכן המערכת
+           עוברת מעצמה ליום הבא. השעה נלקחת משעון ישראל ולא מהמכשיר, כדי
+           שטלפון עם אזור זמן שגוי לא יזיז את היום.
+           כדי שלא יקרו טעויות — המעבר תמיד מלווה בהודעה בולטת ובהבהוב. */
+        const AUTO_NEXT_DAY_HOUR = 22, AUTO_NEXT_DAY_MIN = 30;
+
+        function israelNow() {
+            const f = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Jerusalem', hour12: false,
+                weekday: 'short', hour: '2-digit', minute: '2-digit',
+                day: '2-digit', month: '2-digit'
+            });
+            const p = Object.fromEntries(f.formatToParts(new Date()).map(x => [x.type, x.value]));
+            return {
+                day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday),
+                hour: parseInt(p.hour, 10), minute: parseInt(p.minute, 10),
+                date: `${p.day}/${p.month}`,
+            };
+        }
+
+        // מחזיר את היום שיש להציג, והאם הוא "מחר" ולא היום
+        function activeDayInfo() {
+            const t = israelNow();
+            const past = t.hour > AUTO_NEXT_DAY_HOUR ||
+                         (t.hour === AUTO_NEXT_DAY_HOUR && t.minute >= AUTO_NEXT_DAY_MIN);
+            let day = t.day, advanced = false;
+            if (past) { day = (day + 1) % 7; advanced = true; }
+            if (day === 6) { day = 0; advanced = true; }   // שבת -> ראשון
+            return { day, advanced, time: t };
+        }
+
+        let autoDayAdvanced = false;
+        let currentDay = (() => {
+            const info = activeDayInfo();
+            autoDayAdvanced = info.advanced;
+            return info.day;
+        })();
         let absencesData = {};
         let tripClassesData = {};
         let availableTeachersData = {};
@@ -2399,6 +2489,7 @@
         document.querySelectorAll('.day-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 currentDay = parseInt(this.dataset.day);
+                setTimeout(renderAutoDayNotice, 0);
                 document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 updateAllViews();
@@ -2407,6 +2498,42 @@
 
         // Set current day active
         document.querySelector(`.day-btn[data-day="${currentDay}"]`).classList.add('active');
+        renderAutoDayNotice();
+        if (autoDayAdvanced) flashDay();
+
+        // מציג במפורש על איזה יום עובדים — כדי שלא ידווחו על היום הלא נכון
+        function renderAutoDayNotice() {
+            const el = document.getElementById('auto-day-notice');
+            if (!el) return;
+            const info = activeDayInfo();
+            if (!info.advanced) { el.style.display = 'none'; return; }
+            const onAuto = currentDay === info.day;
+            el.style.display = 'block';
+            el.className = 'auto-day-notice' + (onAuto ? '' : ' off-auto');
+            el.innerHTML = onAuto
+                ? `🌙 אחרי ${AUTO_NEXT_DAY_HOUR}:${String(AUTO_NEXT_DAY_MIN).padStart(2, '0')} — עברנו אוטומטית ל<strong>יום ${dayNames[info.day]}</strong> (מחר). כל דיווח יירשם ליום הזה.`
+                : `⚠️ אתה מציג את <strong>יום ${dayNames[currentDay]}</strong>, אבל השעה כבר אחרי ${AUTO_NEXT_DAY_HOUR}:${String(AUTO_NEXT_DAY_MIN).padStart(2, '0')} — הדיווח הרגיל עכשיו הוא ל<strong>יום ${dayNames[info.day]}</strong>. <button class="btn btn-sm" onclick="goToAutoDay()">קפוץ ליום ${dayNames[info.day]}</button>`;
+        }
+
+        function flashDay() {
+            const btn = document.querySelector(`.day-btn[data-day="${currentDay}"]`);
+            if (!btn) return;
+            btn.classList.remove('day-flash');
+            void btn.offsetWidth;               // מאתחל את האנימציה
+            btn.classList.add('day-flash');
+            setTimeout(() => btn.classList.remove('day-flash'), 4000);
+        }
+
+        function goToAutoDay() {
+            const info = activeDayInfo();
+            currentDay = info.day;
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.querySelector(`.day-btn[data-day="${currentDay}"]`);
+            if (btn) btn.classList.add('active');
+            renderAutoDayNotice();
+            flashDay();
+            updateAllViews();
+        }
 
         // Collapsible sections (חייבים/פנויים/לא עובדים/הצעות איחוד)
         function toggleSection(h2) {
@@ -2429,6 +2556,12 @@
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const pageId = this.dataset.page;
+                // בכניסה לדיווח היעדרות אחרי 22:30 — קופצים ליום שמדווחים עליו
+                if (pageId === 'report') {
+                    const info = activeDayInfo();
+                    if (info.advanced && currentDay !== info.day) goToAutoDay();
+                    else if (info.advanced) flashDay();
+                }
 
                 // Check password for settings
                 if (pageId === 'settings' && !settingsUnlocked) {
@@ -2958,7 +3091,15 @@
                             mergeable.push({
                                 id, teacher: a.teacher, hour: absenceHour,
                                 absentClass, parallelClass: adjClass, coveringTeacher: adjTeacher,
-                                isAdjacent: true
+                                isAdjacent: true,
+                                // לכיתה סמוכה בלי מקבילה אין מה לאחד בתוך עצמה
+                                // (בתשפ"ז: ד, ז, ח). במקרה כזה הכיתה של הנעדר
+                                // מצטרפת אליה, ולא להפך.
+                                joinInto: !parallelClasses[adjClass],
+                                // מי נשאר עם הכיתה המאוחדת כשהמלמד השני מתפנה
+                                stayingTeacher: (parallelClasses[adjClass] || [])
+                                    .map(sc => getTeacherOfClassAtHour(sc, currentDay, absenceHour))
+                                    .find(t => t && t !== adjTeacher) || null
                             });
                         }
                     });
@@ -2966,6 +3107,23 @@
             });
 
             // Show/hide section based on suggestions
+            // שלוש הצעות שאסור להראות:
+            //  · בלי כיתה מזוהה — לא ברור מי מתאחדת עם מי
+            //  · איחוד בכיתה סמוכה שאין בה מי שיישאר עם המאוחדת
+            //  · כפילות של אותה הצעה בדיוק
+            const seenMerge = new Set();
+            const cleanedMerges = mergeable.filter(m => {
+                if (!m.absentClass) return false;
+                const r = mergeRoles(m);
+                if (!r.host) return false;
+                const sig = [m.id, m.hour, r.host, r.mover || '', r.hostClasses.join('+')].join('|');
+                if (seenMerge.has(sig)) return false;
+                seenMerge.add(sig);
+                return true;
+            });
+            mergeable.length = 0;
+            cleanedMerges.forEach(m => mergeable.push(m));
+
             if (mergeable.length === 0) {
                 section.style.display = 'none';
             } else {
@@ -2973,28 +3131,79 @@
                 container.innerHTML = mergeable.map(m => {
                     const classLabel = m.absentClass || '';
                     const escapedTeacher = (m.coveringTeacher || '').replace(/'/g, "\\'");
-                    let description;
-                    if (m.isAdjacent) {
-                        // Adjacent: e.g. "כיתות ב1+ב2 יאוחדו → הרב שמשון יעבור לכיתה ג"
-                        const mergedSubs = parallelClasses[m.parallelClass];
-                        const subsLabel = mergedSubs ? mergedSubs.join('+') : m.parallelClass;
-                        description = `כיתות ${subsLabel} יאוחדו → ${m.coveringTeacher} יעבור לכיתה ${classLabel}`;
-                    } else {
-                        // Direct parallel merge: the parallel teacher teaches both sub-classes together
-                        const mergedSubs = parallelClasses[m.parallelClass];
-                        const subsLabel = mergedSubs ? mergedSubs.join('+') : 'כיתות ' + m.parallelClass;
-                        description = `איחוד כיתות ${subsLabel} → ${m.coveringTeacher} ילמד את הכיתה המאוחדת`;
-                    }
+                    // ניסוח מפורש: מי יושב עם מי, איפה, ומי מלמד
+                    const description = mergeDescription(m);
+                    const msgs = mergeMessages(m);
+                    const contactRow = ['host', 'mover'].map(k => msgs[k]
+                        ? `<div class="merge-send"><span>${k === 'host' ? 'מאחד' : 'עובר'}: <strong>${msgs[k].name}</strong></span>
+                             ${getContactButtonsHTML(msgs[k].name, msgs[k].msg)}</div>` : '').join('');
                     return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 8px;">
-                        <div>
-                            <strong>${m.teacher}</strong> - שעה ${m.hour}${classLabel ? ` (כיתה ${classLabel})` : ''}
-                            <br><small style="color: #666;">${description}</small>
+                    <div class="merge-card">
+                        <div class="merge-body">
+                            <div class="merge-head">
+                                <span class="merge-hour">שעה ${m.hour}</span>
+                                <span class="merge-absent">${m.teacher}${classLabel ? ` · כיתה ${classLabel}` : ''} נעדר</span>
+                            </div>
+                            <div class="merge-what">${description}</div>
+                            <div class="merge-sends">${contactRow}</div>
                         </div>
                         <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}', '${escapedTeacher}')">🔗 אחד</button>
                     </div>`;
                 }).join('');
             }
+        }
+
+        /* ===== ניסוח הצעת האיחוד =====
+           שלוש אפשרויות שונות לגמרי, וחשוב שיהיה ברור איזו מהן מוצעת:
+             1. לכיתה של הנעדר יש מקבילה — שתיהן יושבות יחד אצל מלמד המקבילה
+             2. לכיתה סמוכה יש מקבילה — היא מתאחדת בתוך עצמה, ומלמד מתפנה לבוא
+             3. לכיתה סמוכה אין מקבילה — הכיתה של הנעדר מצטרפת אליה
+           המקרה השלישי נוצר בתשפ"ז כי ד, ז ו-ח הן כיתה אחת כל אחת. */
+        // מפרק את ההצעה לתפקידים: מי מאחד (מארח) ומי עובר — אם בכלל
+        function mergeRoles(m) {
+            const cls = m.absentClass || '';
+            if (!m.isAdjacent) {
+                const subs = parallelClasses[m.parallelClass] || [];
+                const other = subs.find(s => s !== cls) || m.parallelClass;
+                return { host: m.coveringTeacher, hostClasses: [cls, other],
+                         where: other, mover: null, note: '' };
+            }
+            if (m.joinInto) {
+                return { host: m.coveringTeacher, hostClasses: [cls, m.parallelClass],
+                         where: m.parallelClass, mover: null,
+                         note: `לכיתה ${m.parallelClass} אין מקבילה השנה, לכן היא זו שמארחת` };
+            }
+            const subs = parallelClasses[m.parallelClass] || [];
+            return { host: m.stayingTeacher, hostClasses: subs, where: subs[0] || m.parallelClass,
+                     mover: m.coveringTeacher, moverTo: cls, note: '' };
+        }
+
+        function mergeDescription(m) {
+            const r = mergeRoles(m);
+            const rows = [];
+            rows.push(`<div class="merge-row"><span class="merge-role">מאחד</span>` +
+                `<strong>${r.host || '—'}</strong> — כיתות <strong>${r.hostClasses.join(' + ')}</strong> יושבות יחד בכיתה ${r.where}</div>`);
+            if (r.mover) {
+                rows.push(`<div class="merge-row"><span class="merge-role move">עובר</span>` +
+                    `<strong>${r.mover}</strong> — מתפנה ובא לכיתה <strong>${r.moverTo}</strong></div>`);
+            } else {
+                rows.push(`<div class="merge-row"><span class="merge-role none">אף אחד לא עובר</span>` +
+                    `<span class="muted">התלמידים מצטרפים, המלמדים נשארים במקומם</span></div>`);
+            }
+            if (r.note) rows.push(`<div class="merge-note">${r.note}</div>`);
+            return rows.join('');
+        }
+
+        // הודעה מותאמת לכל אחד מהשניים
+        function mergeMessages(m) {
+            const r = mergeRoles(m);
+            const h = `שעה ${m.hour}`;
+            return {
+                host: r.host ? { name: r.host,
+                    msg: `שלום ${r.host}, ${m.teacher} נעדר ב${h}. כיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where}. תודה רבה!` } : null,
+                mover: r.mover ? { name: r.mover,
+                    msg: `שלום ${r.mover}, ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה מתפנה לכיתה ${r.moverTo}. תודה רבה!` } : null,
+            };
         }
 
         // Approve a merge
@@ -3031,9 +3240,12 @@
                     .find(t => t && t !== coveringTeacher && t !== absence.teacher && !isTeacherUnavailable(t, absenceHour)) || '';
             }
 
+            const noParallel = !parallelClasses[parallelClass];
             const confirmMsg = isDirectMerge
-                ? `לאשר איחוד כיתות ${subsLabel} בשעה ${absenceHour}?\n${coverName} ילמד את הכיתה המאוחדת`
-                : `לאשר איחוד? כיתות ${subsLabel} יאוחדו בשעה ${absenceHour}${stayingTeacher ? '\n' + stayingTeacher + ' ילמד את הכיתה המאוחדת' : ''}\n${coverName} יעבור לכיתה ${absentClass}`;
+                ? `לאשר?\n\nכיתות ${subsLabel} יושבות יחד בשעה ${absenceHour}\nמאחד: ${coverName} — מלמד את שתיהן\nאף אחד לא עובר`
+                : noParallel
+                ? `לאשר?\n\nכיתה ${absentClass} מצטרפת לכיתה ${parallelClass} בשעה ${absenceHour}\nמאחד: ${coverName} — מלמד את שתיהן יחד\nאף אחד לא עובר (לכיתה ${parallelClass} אין מקבילה השנה)`
+                : `לאשר?\n\nכיתות ${subsLabel} יושבות יחד בשעה ${absenceHour}\nמאחד: ${stayingTeacher || '—'}\nעובר: ${coverName} → כיתה ${absentClass}`;
             if (!confirm(confirmMsg)) return;
 
             const updateData = {
@@ -3478,6 +3690,21 @@
                 }
             });
 
+            // מי שהוגדר לעדיפות מקודם — אך ורק לשעות החלון שלו, ורק אם
+            // הן באמת קיימות היום. שאר שעותיו הפנויות נשארות כרגיל.
+            WINDOW_PRIORITY_SUBS.forEach(name => {
+                const wh = windowHours(name, currentDay);
+                if (!wh.length) return;
+                const entry = optional.find(o => o.name === name);
+                if (!entry) return;
+                const rest = (entry.hours || []).filter(h => !wh.includes(h));
+                entry.hours = wh;
+                entry.priority = 1.5;                 // אחרי ממלא מקום קבוע, לפני השאר
+                entry.windowPriority = true;
+                entry.otherHours = rest;
+                entry.reason = 'עדיפות — שעות חלון';
+            });
+
             // Sort optional by priority
             optional.sort((a, b) => (a.priority || 99) - (b.priority || 99));
 
@@ -3669,6 +3896,22 @@
             `}).join('');
         }
 
+        /* ===== עדיפות למילוי מקום בשעות חלון =====
+           שעת חלון = שעה פנויה שנמצאת *בין* השיעורים של אותו יום, כלומר
+           המלמד ודאי בבניין. זה שונה משעה פנויה לפני היום שלו או אחריו,
+           שבה הוא כנראה בכלל לא כאן. מי שברשימה יוצג ראשון בשעות כאלה. */
+        const WINDOW_PRIORITY_SUBS = ['הרב אליהו שמשון'];
+
+        function windowHours(teacher, day) {
+            const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+            const t = teacherSchedule[teacher];
+            if (!t || !(t.days || []).includes(day)) return [];
+            const taught = (t.dayHours[day] || []).map(h => order.indexOf(h)).filter(i => i >= 0);
+            if (taught.length < 2) return [];      // בלי שני עוגנים אין "בין"
+            const lo = Math.min(...taught), hi = Math.max(...taught);
+            return order.filter((h, i) => i > lo && i < hi && !(t.dayHours[day] || []).includes(h));
+        }
+
         // Update available teachers
         function updateAvailableTeachers() {
             const { required, optional, notWorking, exempted } = calculateAvailableTeachers();
@@ -3749,7 +3992,11 @@
             } else {
                 optContainer.innerHTML = optional.map(t => {
                     let hoursInfo = '';
-                    if (t.reason === 'פנוי בשעות מסוימות') {
+                    if (t.windowPriority) {
+                        hoursInfo = `שעות חלון: <strong>${t.hours.join(', ')}</strong> — נמצא בבניין בין השיעורים`
+                            + (t.otherHours && t.otherHours.length ? ` | פנוי גם: ${t.otherHours.join(', ')}` : '')
+                            + ` | מלמד בשעות: ${(t.teachingHours || []).join(', ')}`;
+                    } else if (t.reason === 'פנוי בשעות מסוימות') {
                         hoursInfo = `שעות פנויות: <strong>${t.hours.join(', ')}</strong> | מלמד בשעות: ${t.teachingHours.join(', ')}`;
                     } else {
                         hoursInfo = `${t.reason} | שעות: ${t.hours.join(', ')}`;
@@ -3766,7 +4013,7 @@
                             <div class="teacher-hours">${hoursInfo}</div>
                         </div>
                         <div class="contact-buttons">${getContactButtonsHTML(t.name, contactMsg)}</div>
-                        <span class="badge badge-optional">${t.reason === 'ממלא מקום קבוע' ? 'קבוע' : 'פנוי'}</span>
+                        <span class="badge badge-optional">${t.windowPriority ? '⭐ עדיפות' : (t.reason === 'ממלא מקום קבוע' ? 'קבוע' : 'פנוי')}</span>
                     </div>
                 `}).join('');
             }
@@ -5011,6 +5258,49 @@
             box.innerHTML = allTeachers.filter(t => !isOnReserve(t) && t !== sel.value)
                 .map(t => `<label class="res-pick"><input type="checkbox" value="${t}"> ${t}</label>`).join('');
         }
+
+        /* ===== הסרגל הצף =====
+           בגלילה למטה הוא מתכווץ מעצמו כדי לא לאכול חצי מסך בנייד, ובחזרה
+           למעלה נפתח. כפתור ⌃/⌄ מאפשר לקבע מצב ידנית — הבחירה נשמרת,
+           והיא גוברת על ההתנהגות האוטומטית עד שמבטלים אותה. */
+        let dockManual = localStorage.getItem('dockState');   // 'compact' | 'full' | null
+
+        function applyDock(compact) {
+            const bar = document.querySelector('.top-bar');
+            const btn = document.getElementById('dock-toggle');
+            if (!bar) return;
+            bar.classList.toggle('compact', compact);
+            if (btn) {
+                btn.textContent = compact ? '⌄' : '⌃';
+                btn.title = compact ? 'הרחב את הסרגל' : 'הקטן את הסרגל';
+            }
+        }
+
+        function dockAuto() {
+            if (dockManual) return;                    // המשתמש קבע — לא נוגעים
+            applyDock(window.scrollY > 120);
+        }
+
+        function toggleDock() {
+            const bar = document.querySelector('.top-bar');
+            const nowCompact = !bar.classList.contains('compact');
+            dockManual = nowCompact ? 'compact' : 'full';
+            localStorage.setItem('dockState', dockManual);
+            applyDock(nowCompact);
+        }
+
+        // לחיצה ארוכה מחזירה לאוטומטי
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('dock-toggle');
+            if (btn) btn.addEventListener('dblclick', () => {
+                dockManual = null;
+                localStorage.removeItem('dockState');
+                dockAuto();
+            });
+            if (dockManual) applyDock(dockManual === 'compact');
+            else dockAuto();
+        });
+        window.addEventListener('scroll', dockAuto, { passive: true });
 
         // ===== Schedule file upload & override (עדכון קובץ מערכת) =====
         const scheduleNameAliases = { 'הרב שימשון': 'הרב שמשון' };
