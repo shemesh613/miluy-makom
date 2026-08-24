@@ -1097,25 +1097,15 @@
             50%     { box-shadow:0 0 0 6px rgba(242,193,78,0.55); }
         }
         .day-btn.day-flash { animation: dayFlash 0.9s ease-in-out 4; }
-        .top-bar { transition: padding .22s ease, background .22s ease; position: relative; }
-        .dock-toggle { position:absolute; top:6px; left:10px; z-index:3;
-            background:rgba(255,255,255,0.08); color:#e8edf7;
-            border:1px solid rgba(201,169,97,0.35); border-radius:8px;
-            width:26px; height:22px; line-height:1; cursor:pointer; font-size:13px;
-            padding:0; display:flex; align-items:center; justify-content:center; }
-        .dock-toggle:hover { background:rgba(255,255,255,0.16); }
-
-        .top-bar.compact { padding: 6px 10px 2px; }
-        .top-bar.compact .day-selector { margin-bottom: 5px; }
-        .top-bar.compact .nav-tabs { margin-bottom: 3px; gap: 5px; }
-        .top-bar.compact .day-btn { padding: 3px 10px; font-size: 0.76rem; }
-        .top-bar.compact .nav-tab { padding: 4px 10px; font-size: 0.78rem; }
-        /* בנייד הסרגל תופס הכי הרבה — שם מכווצים גם את שורת הימים */
+        /* הסרגל הצף — גודל בינוני קבוע, ללא שינוי בגלילה */
+        .top-bar { padding: 9px 13px 4px; }
+        .top-bar .day-selector { margin-bottom: 7px; }
+        .top-bar .nav-tabs { margin-bottom: 5px; gap: 7px; }
+        .day-btn { padding: 6px 15px; font-size: 0.88rem; }
+        .nav-tab { padding: 7px 16px; font-size: 0.88rem; }
         @media (max-width: 620px) {
-            .top-bar.compact .day-selector { display: none; }
-            .top-bar.compact::after { content: 'הסרגל מוקטן — הקש ⌄ להרחבה';
-                display:block; text-align:center; font-size:0.68rem;
-                color:rgba(232,237,247,0.5); padding-bottom:3px; }
+            .day-btn { padding: 5px 11px; font-size: 0.82rem; }
+            .nav-tab { padding: 6px 12px; font-size: 0.82rem; }
         }
         .merge-card { display:flex; justify-content:space-between; align-items:center; gap:12px;
             padding:12px 14px; background:#fff; border:1px solid #d6e2f2;
@@ -1161,8 +1151,6 @@
 
         <!-- Floating glass navigation dock -->
         <div class="top-bar">
-            <button id="dock-toggle" class="dock-toggle" onclick="toggleDock()"
-                    title="הקטן / הרחב את הסרגל" aria-label="הקטן או הרחב את הסרגל">⌃</button>
             <!-- Day selector -->
             <div id="auto-day-notice" class="auto-day-notice" style="display:none"></div>
             <div class="day-selector">
@@ -5260,49 +5248,6 @@
             box.innerHTML = allTeachers.filter(t => !isOnReserve(t) && t !== sel.value)
                 .map(t => `<label class="res-pick"><input type="checkbox" value="${t}"> ${t}</label>`).join('');
         }
-
-        /* ===== הסרגל הצף =====
-           בגלילה למטה הוא מתכווץ מעצמו כדי לא לאכול חצי מסך בנייד, ובחזרה
-           למעלה נפתח. כפתור ⌃/⌄ מאפשר לקבע מצב ידנית — הבחירה נשמרת,
-           והיא גוברת על ההתנהגות האוטומטית עד שמבטלים אותה. */
-        let dockManual = localStorage.getItem('dockState');   // 'compact' | 'full' | null
-
-        function applyDock(compact) {
-            const bar = document.querySelector('.top-bar');
-            const btn = document.getElementById('dock-toggle');
-            if (!bar) return;
-            bar.classList.toggle('compact', compact);
-            if (btn) {
-                btn.textContent = compact ? '⌄' : '⌃';
-                btn.title = compact ? 'הרחב את הסרגל' : 'הקטן את הסרגל';
-            }
-        }
-
-        function dockAuto() {
-            if (dockManual) return;                    // המשתמש קבע — לא נוגעים
-            applyDock(window.scrollY > 120);
-        }
-
-        function toggleDock() {
-            const bar = document.querySelector('.top-bar');
-            const nowCompact = !bar.classList.contains('compact');
-            dockManual = nowCompact ? 'compact' : 'full';
-            localStorage.setItem('dockState', dockManual);
-            applyDock(nowCompact);
-        }
-
-        // לחיצה ארוכה מחזירה לאוטומטי
-        document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.getElementById('dock-toggle');
-            if (btn) btn.addEventListener('dblclick', () => {
-                dockManual = null;
-                localStorage.removeItem('dockState');
-                dockAuto();
-            });
-            if (dockManual) applyDock(dockManual === 'compact');
-            else dockAuto();
-        });
-        window.addEventListener('scroll', dockAuto, { passive: true });
 
         // ===== Schedule file upload & override (עדכון קובץ מערכת) =====
         const scheduleNameAliases = { 'הרב שימשון': 'הרב שמשון' };
