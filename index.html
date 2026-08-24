@@ -6,7 +6,8 @@
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700;900&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --navy-1: #101830;
@@ -1985,7 +1986,8 @@
                 }
             } catch(e) { console.log('Twilio not configured yet:', e.message); }
         }
-        checkTwilioSetup();
+        // לא נקרא בעלייה — זו הייתה הבקשה האיטית ביותר בדף (735ms) ואין בה
+        // צורך לפני שליחה בפועל. להרצה ידנית: checkTwilioSetup() מהקונסול.
 
         // Format phone for WhatsApp link (0XX -> 972XX)
         function phoneToInternational(phone) {
@@ -2030,7 +2032,7 @@
         function getContactButtonsHTML(teacher, message) {
             const contact = teacherContacts[teacher];
             if (!contact) return '';
-            const msg = message || `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? תודה רבה!`;
+            const msg = message || `${teacher}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי. תודה.`;
 
             const escapedTeacher = teacher.replace(/'/g, "\\'");
             const escapedPhone = contact.phone;
@@ -3200,9 +3202,9 @@
             const h = `שעה ${m.hour}`;
             return {
                 host: r.host ? { name: r.host,
-                    msg: `שלום ${r.host}, ${m.teacher} נעדר ב${h}. כיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where}. תודה רבה!` } : null,
+                    msg: `${r.host}, שלום. ${m.teacher} נעדר ב${h}, וכיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where}. תודה.` } : null,
                 mover: r.mover ? { name: r.mover,
-                    msg: `שלום ${r.mover}, ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה מתפנה לכיתה ${r.moverTo}. תודה רבה!` } : null,
+                    msg: `${r.mover}, שלום. ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה עובר לכיתה ${r.moverTo}. תודה.` } : null,
             };
         }
 
@@ -3872,11 +3874,11 @@
                 if (a.merged && a.substitute) {
                     const absentCls = classAtHour || '';
                     const coverMsg = isDirect
-                        ? `שלום ${a.substitute}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} מאחדים את כיתות ${subsLabel} (${a.teacher} נעדר) — אתה מלמד את הכיתה המאוחדת. תודה רבה!`
-                        : `שלום ${a.substitute}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות${a.stayingTeacher ? ' אצל ' + a.stayingTeacher : ''}, ואתה עובר ללמד את כיתה ${absentCls} (במקום ${a.teacher}). תודה רבה!`;
+                        ? `${a.substitute}, שלום. היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} יושבות יחד אצלך (${a.teacher} נעדר). תודה.`
+                        : `${a.substitute}, שלום. היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} יושבות יחד${a.stayingTeacher ? ' אצל ' + a.stayingTeacher : ''}, ואתה עובר לכיתה ${absentCls} (במקום ${a.teacher}). תודה.`;
                     homeContactBtns = `<div style="font-size:0.85rem;">${isDirect ? '🔗' : '➡️'} <strong>${a.substitute}</strong> → ${isDirect ? 'מלמד את הכיתה המאוחדת ' + subsLabel : 'כיתה ' + absentCls} ${getContactButtonsHTML(a.substitute, coverMsg)}</div>`;
                     if (a.stayingTeacher) {
-                        const stayMsg = `שלום ${a.stayingTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות אצלך — אתה מלמד את הכיתה המאוחדת. תודה רבה!`;
+                        const stayMsg = `${a.stayingTeacher}, שלום. היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} יושבות יחד אצלך. תודה.`;
                         homeContactBtns += `<div style="font-size:0.85rem; margin-top:4px;">🔗 <strong>${a.stayingTeacher}</strong> → מלמד את הכיתה המאוחדת ${subsLabel} ${getContactButtonsHTML(a.stayingTeacher, stayMsg)}</div>`;
                     }
                 }
@@ -3941,9 +3943,9 @@
                             const cls = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
                             return `שעה ${a.hour}${cls ? ' בכיתה ' + cls : ''} (במקום ${a.teacher})`;
                         }).join(', ');
-                        contactMsg = `שלום ${t.name}, ${t.transferredFrom ? `בעקבות היעדרות של ${t.transferredFrom} והטיול היום` : 'הכיתה שלך בטיול היום'} (יום ${dayNames[currentDay]}) שובצת למילוי מקום: ${details}. תודה רבה!`;
+                        contactMsg = `${t.name}, שלום. ${t.transferredFrom ? `${t.transferredFrom} נעדר והכיתה בטיול` : 'הכיתה שלך בטיול'} היום (יום ${dayNames[currentDay]}), ולכן שובצת למילוי מקום: ${details}. תודה.`;
                     } else {
-                        contactMsg = `שלום ${t.name}, ${t.transferredFrom ? `אתה מחליף היום את ${t.transferredFrom} והכיתה שלו בטיול` : 'הכיתה שלך בטיול היום'} (יום ${dayNames[currentDay]}), ולכן עליך למלא מקום בשעות ${freeHours.join(', ')}. פרטי השיבוץ המדויקים יישלחו בהמשך. תודה רבה!`;
+                        contactMsg = `${t.name}, שלום. ${t.transferredFrom ? `אתה מחליף היום את ${t.transferredFrom}, והכיתה שלו בטיול` : 'הכיתה שלך בטיול היום'} (יום ${dayNames[currentDay]}), ולכן יש לך מילוי מקום בשעות ${freeHours.join(', ')}. הפרטים המדויקים יישלחו בהמשך. תודה.`;
                     }
                     const assignBtns = matchingAbsences.length > 0
                         ? matchingAbsences.map(([id, a]) =>
@@ -4005,7 +4007,7 @@
                     const personal = buildPersonalMessage(t.name, t.hours);
                     const contactMsg = personal
                         ? personal.msg
-                        : `שלום ${t.name}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? אשלח פרטים מדויקים בהמשך. תודה רבה!`;
+                        : `${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי, ואשלח פרטים. תודה.`;
                     return `
                     <div class="teacher-card">
                         <div style="flex: 1;">
@@ -4125,16 +4127,16 @@
 
                     let coverMsg, coverRole;
                     if (isDirect) {
-                        coverMsg = `שלום ${coverTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} מאחדים את כיתות ${subsLabel} (${a.teacher} נעדר) — אתה מלמד את הכיתה המאוחדת. תודה רבה!`;
+                        coverMsg = `${coverTeacher}, שלום. היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} יושבות יחד אצלך (${a.teacher} נעדר). תודה.`;
                         coverRole = `מלמד את הכיתה המאוחדת ${subsLabel}`;
                     } else {
-                        coverMsg = `שלום ${coverTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות${stayTeacher ? ' אצל ' + stayTeacher : ''}, ואתה עובר ללמד את כיתה ${absentClass} (במקום ${a.teacher}). תודה רבה!`;
+                        coverMsg = `${coverTeacher}, שלום. היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} יושבות יחד${stayTeacher ? ' אצל ' + stayTeacher : ''}, ואתה עובר לכיתה ${absentClass} (במקום ${a.teacher}). תודה.`;
                         coverRole = `עובר לכיתה ${absentClass}`;
                     }
                     const coverBtns = getContactButtonsHTML(coverTeacher, coverMsg);
 
                     // Message for the teacher who teaches the merged classes (adjacent merge only)
-                    const stayMsg = stayTeacher ? `שלום ${stayTeacher}, היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} מאוחדות אצלך — אתה מלמד את הכיתה המאוחדת. תודה רבה!` : '';
+                    const stayMsg = stayTeacher ? `${stayTeacher}, שלום. היום (יום ${dayNames[currentDay]}) בשעה ${hourDisplay} כיתות ${subsLabel} יושבות יחד אצלך. תודה.` : '';
                     const stayBtns = stayTeacher ? getContactButtonsHTML(stayTeacher, stayMsg) : '';
 
                     // Swap button (only when both teachers exist)
@@ -4180,7 +4182,7 @@
                         </select>
                         ${a.substitute ? `<span class="status-badge reported">✓ ${a.substitute}</span>` : ''}
                         <span id="${contactBtnId}" class="contact-buttons" style="margin-top:4px;">
-                            ${a.substitute ? getContactButtonsHTML(a.substitute, `שלום ${a.substitute}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`) : ''}
+                            ${a.substitute ? getContactButtonsHTML(a.substitute, `${a.substitute}, שלום. ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום. תודה.`) : ''}
                         </span>
                     </div>
                 </div>
@@ -4384,7 +4386,7 @@
             ).join(', ');
 
             return {
-                msg: `שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]}) ב${slotsText}? נודה לך מאוד! תודה רבה!`,
+                msg: `${teacher}, שלום. יש מילוי מקום להיום (יום ${dayNames[currentDay]}) ב${slotsText}. אם זה מסתדר לך — עדכן אותי. תודה.`,
                 slots: matchingSlots
             };
         }
@@ -4590,7 +4592,7 @@
             const container = document.getElementById('contact-' + id);
             if (!container) return;
             if (!teacher) { container.innerHTML = ''; return; }
-            const msg = `שלום ${teacher}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`;
+            const msg = `${teacher}, שלום. ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום. תודה.`;
             container.innerHTML = getContactButtonsHTML(teacher, msg);
         }
 
@@ -4915,7 +4917,7 @@
                     </div>`;
                 }
 
-                const msg = `שלום ${p.cover || ''}, ${p.toran} נעדר היום ולכן התורנות של ${p.slot} ב${p.post} עוברת אליך. תודה רבה!`;
+                const msg = `${p.cover || ''}, שלום. ${p.toran} נעדר היום, ולכן תורנות ${p.slot} ב${p.post} עוברת אליך. תודה.`;
                 const contact = p.cover ? getContactButtonsHTML(p.cover, msg) : '';
                 const verifyTxt = p.verify
                     ? `<div class="yard-verify">🔎 לוודא זמינות — ${PARTIAL_DATA[p.cover] || ''}` +
