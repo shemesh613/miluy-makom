@@ -1097,8 +1097,8 @@
             50%     { box-shadow:0 0 0 6px rgba(242,193,78,0.55); }
         }
         .day-btn.day-flash { animation: dayFlash 0.9s ease-in-out 4; }
-        /* הסרגל הצף — גודל בינוני קבוע, ללא שינוי בגלילה */
-        .top-bar { padding: 9px 13px 4px; }
+        /* הסרגל — גודל בינוני קבוע, ואינו צף: נגלל עם הדף */
+        .top-bar { padding: 9px 13px 4px; position: static; }
         .top-bar .day-selector { margin-bottom: 7px; }
         .top-bar .nav-tabs { margin-bottom: 5px; gap: 7px; }
         .day-btn { padding: 6px 15px; font-size: 0.88rem; }
@@ -1124,6 +1124,16 @@
         .merge-sends { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px;
             padding-top:8px; border-top:1px dashed #dbe2ea; }
         .merge-send { display:flex; align-items:center; gap:6px; font-size:0.82rem; color:#5a6069; }
+        .rdp { background:rgba(21,101,192,0.06); border:1px solid rgba(21,101,192,0.3);
+            border-radius:12px; padding:12px 14px; margin-bottom:16px; text-align:center; }
+        .rdp-head { font-size:0.82rem; color:#5a6069; letter-spacing:.02em; }
+        .rdp-now { font-size:1.45rem; font-weight:700; color:#1565c0; margin:2px 0 10px; }
+        .rdp-date { font-size:0.9rem; font-weight:600; color:#6e7482; margin-inline-start:6px; }
+        .rdp-btns { display:flex; gap:7px; flex-wrap:wrap; justify-content:center; }
+        .rdp-btn { background:#fff; border:1px solid #cfd8e3; border-radius:999px;
+            padding:6px 15px; font-size:0.88rem; font-family:inherit; cursor:pointer; color:#33415c; }
+        .rdp-btn:hover { border-color:#1565c0; }
+        .rdp-btn.on { background:#1565c0; border-color:#1565c0; color:#fff; font-weight:700; }
     </style>
 </head>
 <body>
@@ -1214,6 +1224,7 @@
             <div id="locked-notice-container"></div>
             <div class="card" id="report-form-card">
                 <h2><span class="icon">📝</span> דיווח היעדרות חדשה</h2>
+                <div id="report-day-picker" class="rdp"></div>
 
                 <div class="form-group">
                     <label>שם המורה</label>
@@ -2492,6 +2503,11 @@
         if (autoDayAdvanced) flashDay();
 
         // מציג במפורש על איזה יום עובדים — כדי שלא ידווחו על היום הלא נכון
+        function syncSaveBtnDay() {
+            const b = document.getElementById('save-btn');
+            if (b) b.textContent = `💾 שמור היעדרות ליום ${dayNames[currentDay]}`;
+        }
+
         function renderAutoDayNotice() {
             const el = document.getElementById('auto-day-notice');
             if (!el) return;
@@ -2500,9 +2516,7 @@
             const onAuto = currentDay === info.day;
             el.style.display = 'block';
             el.className = 'auto-day-notice' + (onAuto ? '' : ' off-auto');
-            el.innerHTML = onAuto
-                ? `🌙 אחרי ${AUTO_NEXT_DAY_HOUR}:${String(AUTO_NEXT_DAY_MIN).padStart(2, '0')} — עברנו אוטומטית ל<strong>יום ${dayNames[info.day]}</strong> (מחר). כל דיווח יירשם ליום הזה.`
-                : `⚠️ אתה מציג את <strong>יום ${dayNames[currentDay]}</strong>, אבל השעה כבר אחרי ${AUTO_NEXT_DAY_HOUR}:${String(AUTO_NEXT_DAY_MIN).padStart(2, '0')} — הדיווח הרגיל עכשיו הוא ל<strong>יום ${dayNames[info.day]}</strong>. <button class="btn btn-sm" onclick="goToAutoDay()">קפוץ ליום ${dayNames[info.day]}</button>`;
+            el.style.display = 'none';        // הכיתוב בוטל — הבורר בטופס הדיווח מחליף אותו
         }
 
         function flashDay() {
@@ -3777,6 +3791,8 @@
             updateHonorBoard();
             updateYardDuty();
             updateMissingContacts();
+            renderReportDayPicker();
+            syncSaveBtnDay();
             populateReserveSelect();
             updateReserve();
         }
@@ -5247,6 +5263,50 @@
             if (cur) sel.value = cur;
             box.innerHTML = allTeachers.filter(t => !isOnReserve(t) && t !== sel.value)
                 .map(t => `<label class="res-pick"><input type="checkbox" value="${t}"> ${t}</label>`).join('');
+        }
+
+        /* ===== על איזה יום מדווחים =====
+           רוב הדיווחים נכנסים יום מראש: מי שמדווח בשלישי מתכוון בדרך כלל
+           לרביעי. לכן היום שעליו מדווחים חייב להיות מוצג גדול ומפורש —
+           עם תאריך, לא רק שם יום — ואפשר להחליף אותו במקום, בלי לחפש
+           את בורר הימים למעלה. */
+        function reportDayLabel(d) {
+            const t = israelNow();
+            const today = t.day;
+            const rel = d === today ? 'היום' : (d === (today + 1) % 7 ? 'מחר' : '');
+            // תאריך אמיתי לאותו יום בשבוע הקרוב
+            const now = new Date();
+            let diff = (d - now.getDay() + 7) % 7;
+            const dt = new Date(now.getTime() + diff * 864e5);
+            return { rel, date: `${dt.getDate()}/${dt.getMonth() + 1}` };
+        }
+
+        function renderReportDayPicker() {
+            const el = document.getElementById('report-day-picker');
+            if (!el) return;
+            const t = israelNow();
+            const opts = [t.day, (t.day + 1) % 7, (t.day + 2) % 7]
+                .filter(d => d !== 6)                       // אין דיווח לשבת
+                .filter((d, i, a) => a.indexOf(d) === i);
+            const cur = reportDayLabel(currentDay);
+            el.innerHTML = `
+                <div class="rdp-head">מדווחים על היום הזה:</div>
+                <div class="rdp-now">${dayNames[currentDay]}${cur.rel ? ` · ${cur.rel}` : ''}
+                    <span class="rdp-date">${cur.date}</span></div>
+                <div class="rdp-btns">${opts.map(d => {
+                    const l = reportDayLabel(d);
+                    return `<button type="button" class="rdp-btn${d === currentDay ? ' on' : ''}"
+                        onclick="setReportDay(${d})">${dayNames[d]}${l.rel ? ` (${l.rel})` : ''}</button>`;
+                }).join('')}</div>`;
+        }
+
+        function setReportDay(d) {
+            currentDay = d;
+            document.querySelectorAll('.day-btn').forEach(b =>
+                b.classList.toggle('active', +b.dataset.day === d));
+            renderReportDayPicker();
+            if (typeof flashDay === 'function') flashDay();
+            updateAllViews();
         }
 
         // ===== Schedule file upload & override (עדכון קובץ מערכת) =====
