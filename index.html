@@ -2149,7 +2149,7 @@
             });
             notification.onclick = function() {
                 window.focus();
-                navigateToPage('page-substitute');
+                navigateToPage('substitute');   // בלי הקידומת 'page-' — navigateToPage מוסיף אותה
                 notification.close();
             };
             playNotificationSound();
@@ -2440,10 +2440,18 @@
 
         // Navigate to page
         function navigateToPage(pageId) {
+            // מאתרים קודם ורק אז מכבים. אחרת id שגוי מכבה את כל הלשוניות,
+            // נופל על null, והמסך נשאר ריק באמצע העבודה.
+            const target = document.getElementById('page-' + pageId);
+            const tabBtn = document.querySelector(`.nav-tab[data-page="${pageId}"]`);
+            if (!target || !tabBtn) {
+                console.warn('navigateToPage: לשונית לא קיימת —', pageId);
+                return;
+            }
             document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            document.getElementById('page-' + pageId).classList.add('active');
-            document.querySelector(`.nav-tab[data-page="${pageId}"]`).classList.add('active');
+            target.classList.add('active');
+            tabBtn.classList.add('active');
             if (pageId === 'report') updateLockedNotice();
             updateAllViews();
         }
@@ -3273,15 +3281,22 @@
         function cancelMerge(id) {
             if (!confirm('לבטל את האיחוד?')) return;
 
+            // חייב לנקות את *כל* מה ש-applyMerge כתב. אם directMerge או stayingTeacher
+            // נשארים, isTeacherUnavailable() ממשיך לראות את המלמד שנשאר עם הכיתה
+            // המאוחדת כתפוס באותה שעה — והביטול לא באמת חוזר אחורה.
             if (isOnline && database) {
                 database.ref('absences/' + id).update({
                     merged: null,
                     mergedClass: null,
+                    directMerge: null,
+                    stayingTeacher: null,
                     substitute: ''
                 });
             } else {
                 delete absencesData[id].merged;
                 delete absencesData[id].mergedClass;
+                delete absencesData[id].directMerge;
+                delete absencesData[id].stayingTeacher;
                 absencesData[id].substitute = '';
                 localStorage.setItem('absences', JSON.stringify(absencesData));
                 updateAllViews();
