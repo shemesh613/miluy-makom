@@ -1140,6 +1140,8 @@
         .cap-ok { background:#e8f3ed; color:#2e7d5b; }
         .cap-none { background:#fdecec; color:#c62828; }
         .cap-unknown { background:#fdf3e0; color:#8a5300; }
+        .yard-send { display:flex; align-items:center; gap:6px; font-size:0.8rem;
+            color:#5a6069; margin-top:4px; flex-wrap:wrap; justify-content:flex-end; }
     </style>
 </head>
 <body>
@@ -1469,7 +1471,9 @@
                 </p>
                 <div id="yard-duty-list"></div>
                 <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="yardCopyText()">📋 העתק שינויים לפרסום</button>
+                    <button class="btn btn-primary" onclick="copyEverything()">📋 העתק הכל — מילוי מקום + תורנות</button>
+                    <button class="btn" onclick="sendAllLinksToSelf()">📤 שלח לי את כל ההודעות לווטסאפ</button>
+                    <button class="btn" onclick="yardCopyText()">🏫 רק תורנות</button>
                 </div>
             </div>
         </div>
@@ -2037,7 +2041,7 @@
         function getContactButtonsHTML(teacher, message) {
             const contact = teacherContacts[teacher];
             if (!contact) return '';
-            const msg = message || `${teacher}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי. תודה.`;
+            const msg = message || `${teacher}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי בבקשה. תודה רבה.`;
 
             const escapedTeacher = teacher.replace(/'/g, "\\'");
             const escapedPhone = contact.phone;
@@ -2253,6 +2257,9 @@
             if (unlockedDaysData[targetDay]) {
                 return false; // Manually unlocked
             }
+            // היום ומחר תמיד פתוחים — אלה הדיווחים הרגילים, ואין סיבה לנעול אותם
+            const t = israelNow();
+            if (targetDay === t.day || targetDay === (t.day + 1) % 7) return false;
 
             const now = new Date();
             const todayDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
@@ -2445,6 +2452,36 @@
         });
 
         // Navigate to page
+        const UI_STATE = 'uiState';
+        function saveUiState() {
+            try { sessionStorage.setItem(UI_STATE, JSON.stringify({
+                page: (document.querySelector('.nav-tab.active') || {}).dataset?.page || 'home',
+                day: currentDay, at: Date.now() })); } catch (e) {}
+        }
+        function restoreUiState() {
+            try {
+                const s = JSON.parse(sessionStorage.getItem(UI_STATE) || 'null');
+                if (!s) return false;
+                if (Date.now() - (s.at || 0) > 6 * 3600e3) return false;   // אחרי 6 שעות מתחילים נקי
+                if (typeof s.day === 'number' && s.day !== currentDay) {
+                    currentDay = s.day;
+                    document.querySelectorAll('.day-btn').forEach(b =>
+                        b.classList.toggle('active', +b.dataset.day === s.day));
+                }
+                if (s.page && s.page !== 'home' && document.getElementById('page-' + s.page)) {
+                    navigateToPage(s.page);
+                    return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+        // בנייד היציאה לשיחה לא תמיד מפעילה unload — pagehide/visibilitychange כן
+        window.addEventListener('pagehide', saveUiState);
+        window.addEventListener('beforeunload', saveUiState);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') saveUiState();
+        });
+
         function navigateToPage(pageId) {
             document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -2452,6 +2489,7 @@
             document.querySelector(`.nav-tab[data-page="${pageId}"]`).classList.add('active');
             if (pageId === 'report') updateLockedNotice();
             updateAllViews();
+            saveUiState();
         }
 
 
@@ -2505,6 +2543,7 @@
 
         // Set current day active
         document.querySelector(`.day-btn[data-day="${currentDay}"]`).classList.add('active');
+        setTimeout(restoreUiState, 0);   // חוזרים ללשונית שממנה יצאת
         renderAutoDayNotice();
         if (autoDayAdvanced) flashDay();
 
@@ -3210,9 +3249,9 @@
             const h = `שעה ${m.hour}`;
             return {
                 host: r.host ? { name: r.host,
-                    msg: `${r.host}, שלום. ${m.teacher} נעדר ב${h}, וכיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where}. תודה.` } : null,
+                    msg: `${r.host}, שלום. ${m.teacher} נעדר ב${h}, וכיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where} בבקשה. תודה רבה.` } : null,
                 mover: r.mover ? { name: r.mover,
-                    msg: `${r.mover}, שלום. ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה עובר לכיתה ${r.moverTo}. תודה.` } : null,
+                    msg: `${r.mover}, שלום. ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה עובר בבקשה לכיתה ${r.moverTo}. תודה רבה.` } : null,
             };
         }
 
@@ -4097,7 +4136,7 @@
                     const personal = buildPersonalMessage(t.name, t.hours);
                     const contactMsg = personal
                         ? personal.msg
-                        : `${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי, ואשלח פרטים. תודה.`;
+                        : `${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי בבקשה ואשלח פרטים. תודה רבה.`;
                     return `
                     <div class="teacher-card">
                         <div style="flex: 1;">
@@ -4273,7 +4312,7 @@
                         </select>
                         ${a.substitute ? `<span class="status-badge reported">✓ ${a.substitute}</span>` : ''}
                         <span id="${contactBtnId}" class="contact-buttons" style="margin-top:4px;">
-                            ${a.substitute ? getContactButtonsHTML(a.substitute, `${a.substitute}, שלום. ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום. תודה.`) : ''}
+                            ${a.substitute ? getContactButtonsHTML(a.substitute, `${a.substitute}, שלום. ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום בבקשה. תודה רבה.`) : ''}
                         </span>
                     </div>
                 </div>
@@ -4477,7 +4516,7 @@
             ).join(', ');
 
             return {
-                msg: `${teacher}, שלום. יש מילוי מקום להיום (יום ${dayNames[currentDay]}) ב${slotsText}. אם זה מסתדר לך — עדכן אותי. תודה.`,
+                msg: `${teacher}, שלום. יש מילוי מקום להיום (יום ${dayNames[currentDay]}) ב${slotsText}. בבקשה עדכן אותי אם זה מסתדר. תודה רבה.`,
                 slots: matchingSlots
             };
         }
@@ -4683,7 +4722,7 @@
             const container = document.getElementById('contact-' + id);
             if (!container) return;
             if (!teacher) { container.innerHTML = ''; return; }
-            const msg = `${teacher}, שלום. ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום. תודה.`;
+            const msg = `${teacher}, שלום. ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום בבקשה. תודה רבה.`;
             container.innerHTML = getContactButtonsHTML(teacher, msg);
         }
 
@@ -5031,8 +5070,11 @@
                     </div>`;
                 }
 
-                const msg = `${p.cover || ''}, שלום. ${p.toran} נעדר היום, ולכן תורנות ${p.slot} ב${p.post} עוברת אליך. תודה.`;
-                const contact = p.cover ? getContactButtonsHTML(p.cover, msg) : '';
+                const sw = yardSwapMessages(p);
+                const contact = sw.cover
+                    ? `<div class="yard-send"><span>לוקח: <strong>${sw.cover.name}</strong></span>${getContactButtonsHTML(sw.cover.name, sw.cover.msg)}</div>`
+                      + `<div class="yard-send"><span>מחזיר: <strong>${sw.owes.name}</strong></span>${getContactButtonsHTML(sw.owes.name, sw.owes.msg)}</div>`
+                    : '';
                 const verifyTxt = p.verify
                     ? `<div class="yard-verify">🔎 לוודא זמינות — ${PARTIAL_DATA[p.cover] || ''}` +
                       (p.backup ? `<br>חלופה מאומתת: <strong>${p.backup}</strong>` : '') + '</div>'
@@ -5090,6 +5132,23 @@
             b.style.display = n ? 'inline-flex' : 'none';
         }
 
+        /* שתי הודעות נפרדות לכל חילוף תורנות: אחת למי שלוקח עכשיו,
+           ואחת לנעדר שחייב להחזיר — כל אחת עם התאריך המדויק של ההחזר. */
+        function yardSwapMessages(p) {
+            const day = dayNames[currentDay];
+            const back = p.repay ? yardFmt(p.repay) : null;
+            return {
+                cover: p.cover ? { name: p.cover, role: 'לוקח את התורנות',
+                    msg: `${p.cover}, שלום. ${p.toran} נעדר היום, ולכן תורנות ${p.slot} ב${p.post} (יום ${day}) עוברת אליך בבקשה.`
+                        + (back ? ` ${p.toran} יחזיר לך ב${back}.` : ' ההחזר יתואם בהמשך.')
+                        + ' תודה.' } : null,
+                owes: p.cover ? { name: p.toran, role: 'חייב החזר',
+                    msg: `${p.toran}, שלום. התורנות שלך היום (${p.slot} ב${p.post}) עברה ל${p.cover}.`
+                        + (back ? ` בבקשה החזר לו ב${back}.` : ' נתאם החזר בהמשך.')
+                        + ' תודה.' } : null,
+            };
+        }
+
         // טקסט לפרסום בקבוצת המלמדים
         function yardCopyText() {
             const plan = yardCoverPlan(currentDay).filter(p => p.status !== 'ok');
@@ -5098,9 +5157,80 @@
                 `${p.slot} ${p.post}: ${p.cover || '❗טרם שובץ'} (במקום ${p.toran})`
                 + (p.repay ? ` | החזר: ${yardFmt(p.repay)}` : ''));
             const txt = `🏫 שינויים בתורנות חצר — יום ${dayNames[currentDay]}\n\n` + lines.join('\n');
-            navigator.clipboard.writeText(txt)
+            copyOut(txt);
+        }
+
+        function copyOut(txt) {
+            // בדפדפני נייד ובהקשר לא-מאובטח navigator.clipboard פשוט לא קיים,
+            // ואז צריך ליפול ל-prompt במקום לזרוק שגיאה
+            const cb = navigator.clipboard;
+            if (!cb || !cb.writeText) { prompt('העתק:', txt); return; }
+            cb.writeText(txt)
                 .then(() => alert('✅ הועתק ללוח'))
                 .catch(() => prompt('העתק:', txt));
+        }
+
+        /* העתקה אחת שמכילה גם את מילויי המקום וגם את תורנות החצר —
+           בפועל מפרסמים את שניהם יחד, ולא היה טעם בשתי העתקות נפרדות. */
+        function copyEverything() {
+            const day = dayNames[currentDay];
+            const out = [`📋 סיכום יום ${day}`, ''];
+
+            const subs = Object.values(absencesData)
+                .filter(a => a.day === currentDay && !a.forNextWeek);
+            out.push('🔄 *מילוי מקום*');
+            if (!subs.length) out.push('   אין היעדרויות');
+            else subs.forEach(a => out.push(
+                `   ${a.teacher} · שעה ${a.hour}${a.classAtHour ? ' · ' + a.classAtHour : ''} → `
+                + (a.merged ? 'איחוד כיתות' : (a.substitute || '❗טרם שובץ'))));
+
+            out.push('', '🏫 *תורנות חצר*');
+            const plan = yardCoverPlan(currentDay);
+            const need = plan.filter(p => p.status !== 'ok');
+            if (!need.length) out.push('   ללא שינוי — הכל מאויש');
+            else need.forEach(p => out.push(
+                `   ${p.slot} ${p.post}: ${p.cover || '❗טרם שובץ'} (במקום ${p.toran})`
+                + (p.repay ? ` | החזר: ${yardFmt(p.repay)}` : '')));
+
+            copyOut(out.join('\n'));
+        }
+
+        /* שליחה מרוכזת לעצמי: הודעה אחת עם קישור מוכן לכל נמען, כדי שאפשר
+           יהיה להעביר אחד-אחד מתוך ווטסאפ בלי לצאת מהאתר בכל פעם. */
+        function buildAllWaLinks() {
+            const day = dayNames[currentDay];
+            const items = [];
+            Object.values(absencesData)
+                .filter(a => a.day === currentDay && !a.forNextWeek && a.substitute)
+                .forEach(a => items.push({ name: a.substitute,
+                    msg: `${a.substitute}, שלום. היום (יום ${day}) בשעה ${a.hour}`
+                        + `${a.classAtHour ? ' בכיתה ' + a.classAtHour : ''} — מילוי מקום בבקשה, במקום ${a.teacher}. תודה.` }));
+            yardCoverPlan(currentDay).filter(p => p.status !== 'ok').forEach(p => {
+                const sw = yardSwapMessages(p);
+                if (sw.cover) items.push(sw.cover);
+                if (sw.owes) items.push(sw.owes);
+            });
+            if (!items.length) { alert('אין הודעות לשלוח היום.'); return null; }
+            const lines = items.map(it => {
+                const c = teacherContacts[it.name];
+                const link = c && c.phone
+                    ? `https://wa.me/${phoneToInternational(c.phone)}?text=${encodeURIComponent(it.msg)}`
+                    : '(אין טלפון)';
+                return `▸ *${it.name}*\n${link}`;
+            });
+            return `📤 הודעות ליום ${day} — ${items.length} נמענים\n\n` + lines.join('\n\n');
+        }
+
+        async function sendAllLinksToSelf() {
+            const txt = buildAllWaLinks();
+            if (!txt) return;
+            try {
+                await sendWhatsAppDirect(ADMIN_PHONE || '0526953500', txt);
+                alert('✅ נשלח אליך בווטסאפ — משם אפשר להעביר אחד-אחד');
+            } catch (e) {
+                copyOut(txt);
+                alert('השליחה נכשלה, אז הרשימה הועתקה ללוח: ' + e.message);
+            }
         }
 
 

@@ -26,33 +26,33 @@ def rep(old, new, label):
 
 # --- פנייה כללית (עוד לא שובץ — זו באמת בקשה) ---
 rep("`שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? תודה רבה!`",
-    "`${teacher}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי. תודה.`",
+    "`${teacher}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי בבקשה. תודה רבה.`",
     'פנייה כללית')
 
 rep("`שלום ${t.name}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]})? אשלח פרטים מדויקים בהמשך. תודה רבה!`",
-    "`${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי, ואשלח פרטים. תודה.`",
+    "`${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי בבקשה ואשלח פרטים. תודה רבה.`",
     'פנייה כללית (רשימת פנויים)')
 
 rep("`שלום ${teacher}, האם תוכל בבקשה למלא מקום היום (יום ${dayNames[currentDay]}) ב${slotsText}? נודה לך מאוד! תודה רבה!`",
-    "`${teacher}, שלום. יש מילוי מקום להיום (יום ${dayNames[currentDay]}) ב${slotsText}. אם זה מסתדר לך — עדכן אותי. תודה.`",
+    "`${teacher}, שלום. יש מילוי מקום להיום (יום ${dayNames[currentDay]}) ב${slotsText}. בבקשה עדכן אותי אם זה מסתדר. תודה רבה.`",
     'פנייה עם שעות')
 
 # --- שיבוצים שכבר נקבעו — נמסרים כעובדה ---
 rep("`שלום ${a.substitute}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`",
-    "`${a.substitute}, שלום. ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום. תודה.`",
+    "`${a.substitute}, שלום. ביום ${dayNames[currentDay]} בשעה ${hourDisplay}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום בבקשה. תודה רבה.`",
     'שיבוץ שנקבע')
 
 rep("`שלום ${teacher}, האם תוכל בבקשה למלא מקום ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''}? תודה רבה!`",
-    "`${teacher}, שלום. ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום. תודה.`",
+    "`${teacher}, שלום. ביום ${dayNames[currentDay]} בשעה ${hour}${classAtHour ? ' בכיתה ' + classAtHour : ''} — מילוי מקום בבקשה. תודה רבה.`",
     'שיבוץ ישיר')
 
 # --- איחודי כיתות ---
 rep("`שלום ${r.host}, ${m.teacher} נעדר ב${h}. כיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where}. תודה רבה!`",
-    "`${r.host}, שלום. ${m.teacher} נעדר ב${h}, וכיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where}. תודה.`",
+    "`${r.host}, שלום. ${m.teacher} נעדר ב${h}, וכיתות ${r.hostClasses.join(' + ')} יושבות יחד אצלך בכיתה ${r.where} בבקשה. תודה רבה.`",
     'איחוד — מאחד')
 
 rep("`שלום ${r.mover}, ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה מתפנה לכיתה ${r.moverTo}. תודה רבה!`",
-    "`${r.mover}, שלום. ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה עובר לכיתה ${r.moverTo}. תודה.`",
+    "`${r.mover}, שלום. ${m.teacher} נעדר ב${h}. הכיתה שלך מתאחדת, ואתה עובר בבקשה לכיתה ${r.moverTo}. תודה רבה.`",
     'איחוד — עובר')
 
 for tag, old, new in [
