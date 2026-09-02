@@ -4980,7 +4980,10 @@
                              options: free, clash: yardCoveringLesson(manual.cover, dayIdx, d.slot) };
                 }
 
-                const ranked = [...partial, ...free];
+                const canRepay = c => (c.repay || []).some(r => yardParse(r).day !== d.day);
+                const ranked = [...partial,
+                                ...free.filter(canRepay),
+                                ...free.filter(c => !canRepay(c))];
                 if (ranked.length) {
                     const c = ranked[0];
                     taken.add(d.slot + '|' + c.name);
@@ -5084,7 +5087,8 @@
                     : '';
                 const repayTxt = p.repay
                     ? `<div class="yard-repay">↩️ ${p.toran} יחזיר ל${p.cover}: <strong>${yardFmt(p.repay)}</strong></div>`
-                    : (p.cover ? '<div class="yard-repay yard-repay-none">↩️ אין תורנות שאפשר להחזיר בה — לסכם ידנית</div>' : '');
+                    : (p.cover ? `<div class="yard-repay yard-repay-none">↩️ אין למי להחזיר: לאף תורנות של ${p.cover} `
+                        + `${p.toran} אינו מתאים (אילוצי עמדה/שעה). לסכם ידנית.</div>` : '');
 
                 return `<div class="yard-row yard-row-need">
                     <div class="yard-slot"><strong>${p.slot}</strong><small>${p.post === 'שער' ? 'הכל' : (YARD_GROUP[p.slot] || '')}</small></div>
@@ -5547,6 +5551,18 @@
             renderReportDayPicker();
             if (typeof flashDay === 'function') flashDay();
             updateAllViews();
+        }
+
+        /* ===== חזרה מיידית לאתר =====
+           בנייד, יציאה לשיחה מפנה את הדף — ובחזרה הדפדפן מוריד שוב את כל
+           הדף, את ה-SDK של Firebase ואת הגופנים. ה-Service Worker מגיש
+           אותם מיד מהמטמון ובודק עדכון ברקע, כך שהחזרה מרגישה מיידית.
+           נתוני האמת (Firebase) לא נשמרים במטמון — הם תמיד מהרשת. */
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(e =>
+                    console.warn('SW registration failed', e));
+            });
         }
 
         // ===== Schedule file upload & override (עדכון קובץ מערכת) =====
