@@ -94,10 +94,12 @@ sub(r'(?=        // Update available teachers\n        function updateAvailableT
             if (cap === null)
                 return { owed: false, possible: true, opts,
                          text: `${coverer} — שעותיה אינן במערכת, לתאם החזר ידנית`, cls: 'debt-manual' };
+            // נמדד מול המכסה האישית של מי שכיסה, לא מול מספר קבוע
+            const personal = combinedCap(coverer);
             const used = assignedCount(coverer) + yardDutyCount(coverer);
-            if (used <= WEEK_CAP)
+            if (used <= personal)
                 return { owed: false, possible: true, opts, quota: true,
-                         text: `אין חוב — הכיסוי נספר ל${coverer} בתוך המכסה (${used} מתוך ${WEEK_CAP})`,
+                         text: `אין חוב — הכיסוי נספר ל${coverer} בתוך המכסה שלו (${used} מתוך ${personal})`,
                          cls: 'debt-none' };
             return { owed: true, possible: true, opts,
                      text: `${absentee} ${isFem(absentee) ? 'חייבת' : 'חייב'} מ"מ בחזרה ל${coverer} — ${isFem(coverer) ? 'היא' : 'הוא'} כבר מעל המכסה`,

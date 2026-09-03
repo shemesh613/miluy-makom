@@ -52,10 +52,11 @@ HELPERS = """        /* ===== חלון בודד מול רצף — ההבחנה �
         }
 
         /* ===== תקרה משולבת =====
-           תורנויות חצר + מילויי מקום ≤ 4 בשבוע, ולא יותר מ-round(ש"ש/10).
+           התקרה נגזרת מהיקף המשרה ולא קבועה לכולם: round(ש"ש/9), בין 1 ל-4.
            כך מי שהחצר כבר העמיסה עליו לא מקבל גם מילויי מקום, ושתי
            המערכות מתאזנות מעצמן. עד 2 ביום לאותו מלמד. */
         const WEEK_CAP = 4, DAY_CAP = 2;
+        const combinedCap = t => Math.max(1, Math.min(4, Math.round(weeklyHours(t) / 9)));
         const LAST_RESORT = ['הרב משה'];        // מנהל — רק אם אין ברירה
 
         function yardDutyCount(teacher) {
@@ -68,8 +69,7 @@ HELPERS = """        /* ===== חלון בודד מול רצף — ההבחנה �
         }
         function substCap(teacher) {
             if (isPartialData(teacher)) return null;      // שעותיהן אינן במערכת
-            return Math.max(0, Math.min(WEEK_CAP - yardDutyCount(teacher),
-                                        Math.round(weeklyHours(teacher) / 10)));
+            return Math.max(0, combinedCap(teacher) - yardDutyCount(teacher));
         }
         function assignedCount(teacher, day) {
             return Object.values(absencesData).filter(a =>
@@ -81,7 +81,7 @@ HELPERS = """        /* ===== חלון בודד מול רצף — ההבחנה �
             if (cap === null) return { text: 'שעותיה אינן במערכת — לוודא', cls: 'cap-unknown', left: 99 };
             const used = assignedCount(teacher);
             const left = cap - used;
-            if (cap === 0) return { text: `0 — כבר ${yardDutyCount(teacher)} תורנויות חצר`, cls: 'cap-none', left: 0 };
+            if (cap === 0) return { text: `0 — ${yardDutyCount(teacher)} תורנויות חצר מילאו את המכסה (${combinedCap(teacher)})`, cls: 'cap-none', left: 0 };
             return { text: `${Math.max(0, left)} מתוך ${cap} השבוע`, cls: left > 0 ? 'cap-ok' : 'cap-none', left };
         }
 
@@ -138,7 +138,7 @@ sub(r"""            // Check if this is a new assignment \(not just changing\)
                 if (cap !== null) {
                     const used = assignedCount(substitute);
                     if (used >= cap) warn.push(cap === 0
-                        ? `${substitute} כבר על ${yardDutyCount(substitute)} תורנויות חצר — התקרה המשולבת שלו מלאה.`
+                        ? `${substitute} — ${yardDutyCount(substitute)} תורנויות חצר כבר מילאו את המכסה שלו (${combinedCap(substitute)} לפי ${weeklyHours(substitute)} ש"ש).`
                         : `${substitute} כבר על ${used} מילויי מקום השבוע (התקרה שלו ${cap}).`);
                     const day = assignedCount(substitute, a.day);
                     if (day >= DAY_CAP) warn.push(`כבר ${day} מילויי מקום באותו יום (המקסימום ${DAY_CAP}).`);
