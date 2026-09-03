@@ -4005,11 +4005,16 @@
             return null;
         }
 
-        /* ===== תקרה משולבת =====
-           תורנויות חצר + מילויי מקום ≤ 4 בשבוע, ולא יותר מ-round(ש"ש/10).
-           כך מי שהחצר כבר העמיסה עליו לא מקבל גם מילויי מקום, ושתי
-           המערכות מתאזנות מעצמן. עד 2 ביום לאותו מלמד. */
-        const WEEK_CAP = 4, DAY_CAP = 2;
+        /* ===== תקרה משולבת, פרופורציונלית לשעות =====
+           3.9: התקרה אינה 4 שטוח לכולם. מלמד עם 8 ש"ש לא אמור לשאת כמו
+           מלמד עם 38. הנוסחה: round(ש"ש/9), בין 1 ל-4 — אותו היגיון
+           שנקבע לתורנויות החצר: מי שעובד יותר שעות סופג יותר.
+
+           תורנויות החצר הן "קבועות" וגוברות: הן נשארות כפי שהן, והתקרה
+           המשולבת מגבילה רק את מילויי המקום. מי שהחצר כבר מילאה את
+           המכסה שלו — לא יקבל מ"מ בכלל. עד 2 ביום לאותו מלמד. */
+        const DAY_CAP = 2;
+        const combinedCap = t => Math.max(1, Math.min(4, Math.round(weeklyHours(t) / 9)));
         const LAST_RESORT = ['הרב משה'];        // מנהל — רק אם אין ברירה
 
         function yardDutyCount(teacher) {
@@ -4022,8 +4027,7 @@
         }
         function substCap(teacher) {
             if (isPartialYard(teacher)) return null;      // שעותיהן אינן במערכת
-            return Math.max(0, Math.min(WEEK_CAP - yardDutyCount(teacher),
-                                        Math.round(weeklyHours(teacher) / 10)));
+            return Math.max(0, combinedCap(teacher) - yardDutyCount(teacher));
         }
         function assignedCount(teacher, day) {
             return Object.values(absencesData).filter(a =>
@@ -4035,7 +4039,8 @@
             if (cap === null) return { text: 'שעותיה אינן במערכת — לוודא', cls: 'cap-unknown', left: 99 };
             const used = assignedCount(teacher);
             const left = cap - used;
-            if (cap === 0) return { text: `0 — כבר ${yardDutyCount(teacher)} תורנויות חצר`, cls: 'cap-none', left: 0 };
+            if (cap === 0) return { text: `0 — ${yardDutyCount(teacher)} תורנויות חצר, מכסה ${combinedCap(teacher)} (${weeklyHours(teacher)} ש"ש)`,
+                                    cls: 'cap-none', left: 0 };
             return { text: `${Math.max(0, left)} מתוך ${cap} השבוע`, cls: left > 0 ? 'cap-ok' : 'cap-none', left };
         }
 
