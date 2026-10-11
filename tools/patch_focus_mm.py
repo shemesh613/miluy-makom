@@ -198,9 +198,10 @@ swap('contacts', u'''            'המורה רבקי': { method: 'email', only:
         };''',
      u'''            'המורה רבקי': { method: 'email', only: [], email: 'rivkiamar5@gmail.com' },
             // 11.10: שתיהן זמינות למ"מ. **שיחות בלבד — אין להן הודעות כלל**,
-            // לא SMS ולא ווטסאפ, ולכן `only: ['call']`. המיילים טרם התקבלו.
-            'המורה נועה': { phone: '0533105853', method: 'call', only: ['call'] },
-            'המורה טובי': { phone: '0548497223', method: 'call', only: ['call'] },
+            // לא SMS ולא ווטסאפ, ולכן `only: ['call']`. מייל כן — הוא אינו
+            // מסונן ע"י `only`, וזה הערוץ הכתוב היחיד שלהן.
+            'המורה נועה': { phone: '0533105853', method: 'call', only: ['call'], email: 'noala0533@gmail.com' },
+            'המורה טובי': { phone: '0548497223', method: 'call', only: ['call'], email: 'toby8497223@gmail.com' },
         };''')
 
 swap('contact buttons note', u'''            const contact = teacherContacts[teacher];

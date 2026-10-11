@@ -86,8 +86,9 @@ const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').split(path
     out.callOnly = ['המורה נועה', 'המורה טובי'].map(function (n) {
       const h = getContactButtonsHTML(n, 'בדיקה');
       return { t: n, phone: (teacherContacts[n] || {}).phone || null,
+               email: (teacherContacts[n] || {}).email || null,
                call: /href="tel:/.test(h), sms: /href="sms:/.test(h),
-               wa: /sendWaLinkToAdmin/.test(h) };
+               wa: /sendWaLinkToAdmin/.test(h), mail: /href="mailto:/.test(h) };
     });
     return out;
   });
@@ -105,6 +106,8 @@ const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').split(path
     if (!c.phone) bad.push(c.t + ': אין טלפון');
     if (!c.call) bad.push(c.t + ': אין כפתור שיחה');
     if (c.sms || c.wa) bad.push(c.t + ': מוצגת אפשרות הודעה (SMS/ווטסאפ) — אסור');
+    if (!c.email) bad.push(c.t + ': אין מייל');
+    if (!c.mail) bad.push(c.t + ': אין כפתור מייל');
   });
   if (errs.length) bad.push('שגיאות דף: ' + errs.slice(0, 3).join(' | '));
 
@@ -123,7 +126,8 @@ const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').split(path
   r.callOnly.forEach(c => console.log('  ' + c.t + ' | ' + c.phone +
     ' | שיחה ' + (c.call ? '✓' : '✗') +
     ' | SMS ' + (c.sms ? '✗ מוצג!' : 'חסום ✓') +
-    ' | ווטסאפ ' + (c.wa ? '✗ מוצג!' : 'חסום ✓')));
+    ' | ווטסאפ ' + (c.wa ? '✗ מוצג!' : 'חסום ✓') +
+    ' | מייל ' + (c.mail ? '✓ ' + c.email : '✗')));
   console.log('\n' + (bad.length ? '✗ כשלים:\n  · ' + bad.join('\n  · ') : '✓ כל הבדיקות עברו'));
 
   await b.close();
