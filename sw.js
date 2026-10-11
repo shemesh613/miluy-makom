@@ -2,8 +2,16 @@
    בנייד, יציאה לשיחה מפנה את הדף, ובחזרה הדפדפן מוריד מחדש את כל הדף
    (320KB) + ה-SDK של Firebase + הגופנים. כאן שומרים אותם, ומגישים מהמטמון
    מיד תוך כדי בדיקת עדכון ברקע (stale-while-revalidate).
-   התוצאה: החזרה מרגישה מיידית, וגרסה חדשה נתפסת בטעינה הבאה. */
-const CACHE = 'miluy-v1';
+   התוצאה: החזרה מרגישה מיידית, וגרסה חדשה נתפסת בטעינה הבאה.
+
+   ⚠️ 11.10: החיסרון של stale-while-revalidate הוא שגרסה חדשה מגיעה רק
+   בטעינה **הבאה** — כלומר אחרי דחיפה רואים עדיין את הישן, וזה נראה כאילו
+   השינוי לא נדחף. לכן עכשיו: המטמון נושא את מספר הגרסה (`BUILD`), ובכל
+   פעם שהדף שחזר מהרשת שונה מזה שבמטמון — נשלחת הודעה לדף והוא מציג
+   פס "יש גרסה חדשה · רענן".
+   📌 **לעדכן את BUILD בכל דחיפה שמשנה קוד.** */
+const BUILD = '2026-10-11c';
+const CACHE = 'miluy-' + BUILD;
 const SHELL = [
   './',
   './index.html',
@@ -24,6 +32,14 @@ self.addEventListener('activate', e => {
   );
 });
 
+// חותם הגרסה של תשובה — ETag של GitHub Pages, ואם אין אז זמן השינוי
+const stamp = res => res && (res.headers.get('ETag') || res.headers.get('Last-Modified'));
+
+function announceUpdate() {
+  self.clients.matchAll({ type: 'window' }).then(cs =>
+    cs.forEach(c => c.postMessage({ type: 'NEW_VERSION' })));
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -36,11 +52,20 @@ self.addEventListener('fetch', e => {
                     /gstatic\.com|googleapis\.com/.test(url.hostname);
   if (!cacheable) return;
 
+  // רק על הדף עצמו שווה להתריע — לא על גופנים ו-SDK
+  const isDoc = req.mode === 'navigate' ||
+                (url.origin === location.origin && /(^\/|\/|index\.html)$/.test(url.pathname));
+
   e.respondWith(
     caches.open(CACHE).then(cache =>
       cache.match(req).then(hit => {
         const net = fetch(req).then(res => {
-          if (res && res.status === 200) cache.put(req, res.clone());
+          if (res && res.status === 200) {
+            const was = stamp(hit), now = stamp(res);
+            cache.put(req, res.clone());
+            // הדף במטמון ישן מזה שברשת — להודיע לדף שיציע רענון
+            if (isDoc && hit && was && now && was !== now) announceUpdate();
+          }
           return res;
         }).catch(() => hit);
         return hit || net;          // יש במטמון → מיידי, והעדכון נמשך ברקע
