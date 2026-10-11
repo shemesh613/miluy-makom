@@ -82,6 +82,13 @@ const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').split(path
       tovi: getContactButtonsHTML('המורה טובי', 'בדיקה'),
       beni: getContactButtonsHTML('הרב בני', 'בדיקה').slice(0, 60)
     };
+    // שיחות בלבד — אין להן הודעות כלל, לא SMS ולא ווטסאפ
+    out.callOnly = ['המורה נועה', 'המורה טובי'].map(function (n) {
+      const h = getContactButtonsHTML(n, 'בדיקה');
+      return { t: n, phone: (teacherContacts[n] || {}).phone || null,
+               call: /href="tel:/.test(h), sms: /href="sms:/.test(h),
+               wa: /sendWaLinkToAdmin/.test(h) };
+    });
     return out;
   });
 
@@ -94,6 +101,11 @@ const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').split(path
   if (r.inStaff.length !== 2) bad.push('לא בצוות: ' + JSON.stringify(r.inStaff));
   if (!r.toviBlockedWhenAbsent) bad.push('טובי מוצעת גם כשהיא נעדרת');
   if (r.noaPartialNag) bad.push('נועה עדיין מקפיצה אזהרת "לוודא"');
+  r.callOnly.forEach(function (c) {
+    if (!c.phone) bad.push(c.t + ': אין טלפון');
+    if (!c.call) bad.push(c.t + ': אין כפתור שיחה');
+    if (c.sms || c.wa) bad.push(c.t + ': מוצגת אפשרות הודעה (SMS/ווטסאפ) — אסור');
+  });
   if (errs.length) bad.push('שגיאות דף: ' + errs.slice(0, 3).join(' | '));
 
   console.log('— תקרות —');
@@ -107,6 +119,11 @@ const FILE = 'file:///' + path.resolve(__dirname, '..', 'index.html').split(path
   console.log('\nפרטי קשר נועה: ' + r.contactHtml.noa);
   console.log('פרטי קשר טובי: ' + r.contactHtml.tovi);
   console.log('פרטי קשר בני (ביקורת): ' + r.contactHtml.beni + '...');
+  console.log('\n— ערוצי קשר (שיחות בלבד) —');
+  r.callOnly.forEach(c => console.log('  ' + c.t + ' | ' + c.phone +
+    ' | שיחה ' + (c.call ? '✓' : '✗') +
+    ' | SMS ' + (c.sms ? '✗ מוצג!' : 'חסום ✓') +
+    ' | ווטסאפ ' + (c.wa ? '✗ מוצג!' : 'חסום ✓')));
   console.log('\n' + (bad.length ? '✗ כשלים:\n  · ' + bad.join('\n  · ') : '✓ כל הבדיקות עברו'));
 
   await b.close();

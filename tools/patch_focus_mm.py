@@ -197,10 +197,10 @@ swap('cap badge tooltip',
 swap('contacts', u'''            'המורה רבקי': { method: 'email', only: [], email: 'rivkiamar5@gmail.com' },
         };''',
      u'''            'המורה רבקי': { method: 'email', only: [], email: 'rivkiamar5@gmail.com' },
-            // 11.10: שתיהן זמינות למ"מ אבל אין להן פרטי קשר במערכת.
-            // `only: []` מונע כפתורים שבורים, וה-note מוצג כתזכורת להשלים.
-            'המורה נועה': { method: 'email', only: [], note: 'חסרים טלפון ומייל — להשלים' },
-            'המורה טובי': { method: 'email', only: [], note: 'חסרים טלפון ומייל — להשלים' },
+            // 11.10: שתיהן זמינות למ"מ. **שיחות בלבד — אין להן הודעות כלל**,
+            // לא SMS ולא ווטסאפ, ולכן `only: ['call']`. המיילים טרם התקבלו.
+            'המורה נועה': { phone: '0533105853', method: 'call', only: ['call'] },
+            'המורה טובי': { phone: '0548497223', method: 'call', only: ['call'] },
         };''')
 
 swap('contact buttons note', u'''            const contact = teacherContacts[teacher];
