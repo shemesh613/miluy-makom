@@ -2055,13 +2055,25 @@
             return '972' + phone.substring(1);
         }
 
+        /* ===== למה ההודעות הגיעו חתוכות =====
+           `encodeURIComponent` משאיר כמו שהם את `! ' ( ) * ~`.
+           ההודעות שלנו מלאות בסוגריים — "היום (יום שני)", "(במקום הרב
+           בישמוט)" — ומזהה-הקישורים של ווטסאפ **עוצר בסוגר הסוגר**,
+           כי `)` נחשב פיסוק ולא חלק מכתובת. התוצאה: הלחיצה פתחה הודעה
+           שנקטעה בדיוק שם, למרות שהקישור עצמו נשלח שלם.
+           ⚠️ כל בניית קישור wa.me חייבת לעבור כאן, לא ב-encodeURIComponent. */
+        function waText(s) {
+            return encodeURIComponent(s || '')
+                .replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+        }
+
         // Generate contact link for a teacher with optional message context
         function getContactLink(teacher, message) {
             const contact = teacherContacts[teacher];
             if (!contact) return null;
             const encoded = encodeURIComponent(message || '');
             if (contact.method === 'whatsapp') {
-                return `https://wa.me/${phoneToInternational(contact.phone)}?text=${encoded}`;
+                return `https://wa.me/${phoneToInternational(contact.phone)}?text=${waText(message)}`;
             } else if (contact.method === 'sms') {
                 return `sms:${contact.phone}?body=${encoded}`;
             }
@@ -2072,7 +2084,7 @@
         const ADMIN_PHONE = '0526953500';
 
         async function sendWaLinkToAdmin(teacher, phone, message) {
-            const waLink = `https://wa.me/${phoneToInternational(phone)}?text=${encodeURIComponent(message)}`;
+            const waLink = `https://wa.me/${phoneToInternational(phone)}?text=${waText(message)}`;
             const adminMsg = `📤 *שלח ל${teacher}:*\n\n${waLink}`;
             try {
                 await sendWhatsAppDirect(ADMIN_PHONE, adminMsg);
@@ -4818,7 +4830,7 @@
                                 </div>
                             </div>
                             <div class="contact-buttons">
-                                ${t.method === 'whatsapp' ? `<a href="https://wa.me/${phoneToInternational(t.phone)}?text=${encodeURIComponent(t.message)}" target="_blank" class="contact-btn contact-whatsapp" title="שלח ווטסאפ">💬</a>` : ''}
+                                ${t.method === 'whatsapp' ? `<a href="https://wa.me/${phoneToInternational(t.phone)}?text=${waText(t.message)}" target="_blank" class="contact-btn contact-whatsapp" title="שלח ווטסאפ">💬</a>` : ''}
                                 ${t.method === 'sms' ? `<a href="sms:${t.phone}?body=${encodeURIComponent(t.message)}" class="contact-btn contact-sms" title="שלח הודעה">✉️</a>` : ''}
                                 <a href="tel:${t.phone}" class="contact-btn contact-call" title="התקשר">📞</a>
                             </div>
@@ -4847,7 +4859,7 @@
 
             statusEl.innerHTML = `<strong>💬 לחץ על כל קישור לשליחה (${waTeachers.length}):</strong><br><br>` +
                 waTeachers.map((t, i) => {
-                    const waUrl = `https://wa.me/${phoneToInternational(t.phone)}?text=${encodeURIComponent(t.message)}`;
+                    const waUrl = `https://wa.me/${phoneToInternational(t.phone)}?text=${waText(t.message)}`;
                     const slotsInfo = t.slots.map(s => `שעה ${s.hour}`).join(', ');
                     return `<a href="${waUrl}" target="_blank" style="display:block; margin:6px 0; padding:12px; background:#25D366; color:white; border-radius:10px; text-decoration:none; font-size:1rem; text-align:center;">💬 ${i + 1}. ${t.name} (${slotsInfo})</a>`;
                 }).join('');
@@ -5430,7 +5442,7 @@
             const lines = items.map(it => {
                 const c = teacherContacts[it.name];
                 const link = c && c.phone
-                    ? `https://wa.me/${phoneToInternational(c.phone)}?text=${encodeURIComponent(it.msg)}`
+                    ? `https://wa.me/${phoneToInternational(c.phone)}?text=${waText(it.msg)}`
                     : '(אין טלפון)';
                 return `▸ *${it.name}*\n${link}`;
             });
