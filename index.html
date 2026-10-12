@@ -1847,6 +1847,42 @@
             return hit ? hit[1].reason : null;
         }
 
+        /* ===== תאים שקובץ המערכת מוסר בהם מידע =====
+           תא שמכיל רק את שם המקצוע בלי הכיתה יוצא מהפרסר כ"תפוס, אין
+           כיתה" — ואז כשהמלמד נעדר, המערכת חושבת **שאין מה לכסות**
+           והכיתה נשארת בלי מלמד בלי שאף אחד ידע. זה לא "שעה בלי כיתה",
+           זו אבדן נתון.
+
+           ⚠️ נאכף גם על קובץ שיועלה בהמשך — אחרת כל העלאה מחזירה את הבאג.
+           כשהקובץ יתוקן במקור אפשר להסיר מכאן. */
+        const SCHEDULE_FIXES = [
+            { teacher: 'הרב אליהו שמשון', day: 1, hour: '7', cls: 'ח',
+              note: 'טבע בח — בקובץ התא מכיל רק את שם המקצוע (שמשון, 11.10.26)' },
+        ];
+
+        function enforceScheduleFixes() {
+            const order = ['בוקר', '4', '5', '6', '7', '8', '9', '10', 'סדר ערב'];
+            SCHEDULE_FIXES.forEach(f => {
+                const t = teacherSchedule[f.teacher];
+                if (!t) return;
+                t.days = t.days || [];
+                if (!t.days.includes(f.day)) t.days = [...t.days, f.day].sort((a, b) => a - b);
+                t.dayHours = t.dayHours || {};
+                const hours = t.dayHours[f.day] || (t.dayHours[f.day] = []);
+                if (!hours.includes(f.hour)) {
+                    hours.push(f.hour);
+                    hours.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                }
+                t.dayClasses = t.dayClasses || {};
+                const dc = t.dayClasses[f.day] || (t.dayClasses[f.day] = []);
+                const base = f.cls.charAt(0);
+                if (!dc.includes(base)) dc.push(base);
+                const map = dayHourClassesData[f.teacher] || (dayHourClassesData[f.teacher] = {});
+                const dm = map[f.day] || (map[f.day] = {});
+                dm[f.hour] = f.cls;
+            });
+        }
+
         function isMechanechMeeting(day, hour) {
             return day === MECHANECH_MEETING.day && hour === MECHANECH_MEETING.hour;
         }
@@ -1857,6 +1893,7 @@
         const builtinClassMechanech = JSON.parse(JSON.stringify(classMechanech));
         enforceMechanechMeeting();   // גם על המערכת המובנית, לא רק על קובץ שהועלה
         enforcePersonalBlocks();
+        enforceScheduleFixes();
         EXTRA_STAFF.forEach(t => { if (!allTeachers.includes(t)) allTeachers.push(t); });
         allTeachers.sort((a, b) => a.localeCompare(b, 'he'));
         // חותמת המערכת המובנית. override ישן יותר (תשפ"ו) מוזנח אוטומטית,
@@ -5945,6 +5982,11 @@
             [...names].sort((a, b) => a.localeCompare(b, 'he')).forEach(n => allTeachers.push(n));
 
             enforceMechanechMeeting();
+            // 🔴 enforcePersonalBlocks לא נקרא כאן עד 12.10 — כלומר כל העלאת
+            // קובץ מחקה את החסימות האישיות (ינון, פורת, שלומי) והחזירה אותם
+            // לרשימת הפנויים בשעות שהם אינם בבניין.
+            enforcePersonalBlocks();
+            enforceScheduleFixes();
             activeScheduleInfo = o ? { fileName: o.fileName || '', updatedAt: o.updatedAt || 0 } : null;
             if (typeof populateTeacherSelect === 'function') populateTeacherSelect();
             if (typeof populateTripTeacherSelect === 'function') populateTripTeacherSelect();

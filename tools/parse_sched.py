@@ -182,6 +182,40 @@ PERSONAL_BLOCKS = {
                         'reason': 'חמישי 4–5 — יוצא לקניות'},
 }
 
+# ---------------------------------------------------------------------------
+# תאים שהקובץ מוסר בהם מידע: תא שמכיל רק את שם המקצוע בלי הכיתה יוצא
+# "תפוס, אין כיתה" — וכשהמלמד נעדר המערכת חושבת שאין מה לכסות, והכיתה
+# נשארת בלי מלמד בלי שאף אחד ידע. זה אבדן נתון, לא שעה בלי כיתה.
+# ⚠️ חייב להישאר מסונכרן עם SCHEDULE_FIXES שב-index.html.
+# ---------------------------------------------------------------------------
+SCHEDULE_FIXES = [
+    # שמשון, 11.10.26: שני שעה 7 — טבע בכיתה ח
+    {'teacher': 'הרב אליהו שמשון', 'day': 1, 'hour': '7', 'cls': 'ח'},
+]
+
+for fx in SCHEDULE_FIXES:
+    t = parsed.get(fx['teacher'])
+    if not t:
+        print('⚠️ תיקון תא ל%s — לא נמצא בקובץ' % fx['teacher'])
+        continue
+    d, h = fx['day'], fx['hour']
+    if d not in t['days']:
+        t['days'] = sorted(t['days'] + [d])
+    hours = t['dayHours'].setdefault(d, [])
+    if h not in hours:
+        hours.append(h)
+        hours.sort(key=HOUR_ORDER.index)
+    was = t['hourClasses'].setdefault(d, {}).get(h)
+    t['hourClasses'][d][h] = fx['cls']
+    base = fx['cls'].replace('1', '').replace('2', '')
+    if base not in t['dayClasses'].setdefault(d, []):
+        t['dayClasses'][d].append(base)
+        t['dayClasses'][d].sort()
+    t['nonclass'] = [x for x in t.get('nonclass', []) if x != '%d|%s' % (d, h)]
+    print('תיקון תא: %s יום %d שעה %s -> %s%s'
+          % (fx['teacher'], d, h, fx['cls'],
+             '' if was is None else ' (היה %s)' % was))
+
 blocked = 0
 for key, rule in PERSONAL_BLOCKS.items():
     name = rule.get('teacher', key)
