@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="92cc62fd5b99">
+    <meta name="app-build" content="aa77ecfbb5eb">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -1136,6 +1136,7 @@
             padding:6px 15px; font-size:0.88rem; font-family:inherit; cursor:pointer; color:#33415c; }
         .rdp-btn:hover { border-color:#1565c0; }
         .rdp-btn.on { background:#1565c0; border-color:#1565c0; color:#fff; font-weight:700; }
+        .rdp-btn-date { display:block; font-size:0.72rem; opacity:.7; margin-top:1px; }
         .risky { color:#b26a00; }
         .cap-badge { display:inline-block; border-radius:999px; padding:1px 9px;
             font-size:0.72rem; font-weight:600; white-space:nowrap; margin-inline-start:4px; }
@@ -5797,7 +5798,9 @@
             const el = document.getElementById('report-day-picker');
             if (!el) return;
             const t = israelNow();
-            const opts = [t.day, (t.day + 1) % 7, (t.day + 2) % 7]
+            // כל השבוע הקרוב — לא רק 3 ימים. isDayLocked כבר תומכת בדיווח
+            // קדימה על כל יום; זו הייתה רק מגבלת תצוגה של הכפתורים.
+            const opts = [0, 1, 2, 3, 4, 5, 6].map(i => (t.day + i) % 7)
                 .filter(d => d !== 6)                       // אין דיווח לשבת
                 .filter((d, i, a) => a.indexOf(d) === i);
             const cur = reportDayLabel(currentDay);
@@ -5808,7 +5811,8 @@
                 <div class="rdp-btns">${opts.map(d => {
                     const l = reportDayLabel(d);
                     return `<button type="button" class="rdp-btn${d === currentDay ? ' on' : ''}"
-                        onclick="setReportDay(${d})">${dayNames[d]}${l.rel ? ` (${l.rel})` : ''}</button>`;
+                        onclick="setReportDay(${d})">${dayNames[d]}${l.rel ? ` (${l.rel})` : ''}
+                        <span class="rdp-btn-date">${l.date}</span></button>`;
                 }).join('')}</div>`;
         }
 
