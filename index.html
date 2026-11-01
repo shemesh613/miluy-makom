@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="3954974d9ccc">
+    <meta name="app-build" content="926c9c34865a">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -1894,6 +1894,30 @@
             });
         }
 
+        /* ===== מלמדים שרוצים להופיע כזמינים ביום שאינם מלמדים בו =====
+           בשונה מ-ALWAYS_AVAILABLE: מי שברשימה הזו כן מלומד כרגיל בשאר
+           השבוע לפי מערכת אמיתית — זה מוסיף רק את היום הנקוב כ"עובד,
+           בלי שיעורים", כך שכל השעות בו יוצאות פנויות. שאר השבוע שלו
+           לא נוגעים. נאכף גם על קובץ שיועלה. */
+        const EXTRA_PRESENCE_DAYS = {
+            'הרב אורי פ.': { days: [0], reason: 'אוהב למלא מקום — שמשון, 1.11.26' },
+        };
+
+        function enforceExtraPresenceDays() {
+            Object.entries(EXTRA_PRESENCE_DAYS).forEach(([name, rule]) => {
+                const t = teacherSchedule[name];
+                if (!t) return;
+                t.days = t.days || [];
+                rule.days.forEach(d => {
+                    if (!t.days.includes(d)) t.days = [...t.days, d].sort((a, b) => a - b);
+                    t.dayHours = t.dayHours || {};
+                    if (!t.dayHours[d]) t.dayHours[d] = [];      // אין שיעורים = כל השעות פנויות
+                    t.dayClasses = t.dayClasses || {};
+                    if (!t.dayClasses[d]) t.dayClasses[d] = [];
+                });
+            });
+        }
+
         function isMechanechMeeting(day, hour) {
             return day === MECHANECH_MEETING.day && hour === MECHANECH_MEETING.hour;
         }
@@ -1905,6 +1929,7 @@
         enforceMechanechMeeting();   // גם על המערכת המובנית, לא רק על קובץ שהועלה
         enforcePersonalBlocks();
         enforceScheduleFixes();
+        enforceExtraPresenceDays();
         EXTRA_STAFF.forEach(t => { if (!allTeachers.includes(t)) allTeachers.push(t); });
         allTeachers.sort((a, b) => a.localeCompare(b, 'he'));
         // חותמת המערכת המובנית. override ישן יותר (תשפ"ו) מוזנח אוטומטית,
@@ -2752,6 +2777,7 @@
         // Hours selector
         document.querySelectorAll('.hour-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                if (!this.dataset.hour) return;   // #all-day-btn — יש לו מאזין משלו
                 this.classList.toggle('selected');
                 updateSuggestionFields();
             });
@@ -2968,12 +2994,20 @@
             const teacherSelect = document.getElementById('teacher-select');
             const teacherManual = document.getElementById('teacher-manual');
             const teacher = teacherSelect.value === 'other' ? teacherManual.value : teacherSelect.value;
-            const hours = getSelectedHours();
+            const selectedHours = getSelectedHours();
+            // הגנה גם כשהשעה נבחרה ידנית (לא רק דרך "כל היום") — שעה בלי
+            // כיתה ממופה אינה נשמרת כהיעדרות; "תפוס, אין כיתה" כמו הדרכה/גנים.
+            const hours = selectedHours.filter(h => getTeacherClassAtHour(teacher, currentDay, h));
+            const classlessHours = selectedHours.filter(h => !hours.includes(h));
             const reason = document.getElementById('absence-reason').value;
             const teacherEmail = document.getElementById('teacher-email').value.trim();
             const reportedToMoshe = document.getElementById('reported-to-moshe').checked;
 
             if (!teacher) { alert('נא לבחור מורה'); return; }
+            if (hours.length === 0 && classlessHours.length) {
+                alert(`כל השעות שנבחרו (${classlessHours.join(', ')}) הן שעות הדרכה בלי כיתה — אין צורך לדווח עליהן.`);
+                return;
+            }
             if (hours.length === 0) { alert('נא לבחור לפחות שעה אחת'); return; }
             if (!reportedToMoshe) { alert('חובה לדווח לרב משה!'); return; }
 
@@ -2990,7 +3024,8 @@
             // Confirmation dialog
             const dayName = dayNames[currentDay];
             const hoursText = hours.join(', ');
-            const confirmMsg = `האם אתה בטוח שברצונך לדווח על היעדרות?\n\nמורה: ${teacher}\nיום: ${dayName}${forNextWeek ? ' (📅 שבוע הבא!)' : ''}\nשעות: ${hoursText}`;
+            const confirmMsg = `האם אתה בטוח שברצונך לדווח על היעדרות?\n\nמורה: ${teacher}\nיום: ${dayName}${forNextWeek ? ' (📅 שבוע הבא!)' : ''}\nשעות: ${hoursText}`
+                + (classlessHours.length ? `\n\nℹ️ לא נשמרות: שעה ${classlessHours.join(', ')} — הדרכה, אין כיתה לכסות.` : '');
 
             if (!confirm(confirmMsg)) {
                 return;
@@ -3082,10 +3117,19 @@
             }
 
             // Get today's hours for this teacher
-            const todayHours = schedule.dayHours ? (schedule.dayHours[currentDay] || []) : [];
+            // שעות בלי כיתה ממופה (הדרכה/גנים/קב"ש וכדומה) אינן נכללות —
+            // "תפוס, אין כיתה": אם נעדר באותה שעה אין מה לכסות, ולכן אין
+            // טעם לדווח עליה כהיעדרות הדורשת מ"מ.
+            const allDayHours = schedule.dayHours ? (schedule.dayHours[currentDay] || []) : [];
+            const todayHours = allDayHours.filter(h => getTeacherClassAtHour(teacher, currentDay, h));
+            const skippedNonClass = allDayHours.filter(h => !todayHours.includes(h));
 
-            if (todayHours.length === 0) {
+            if (allDayHours.length === 0) {
                 alert(`${teacher} לא מלמד ביום ${dayNames[currentDay]}`);
+                return;
+            }
+            if (todayHours.length === 0) {
+                alert(`${teacher} ביום ${dayNames[currentDay]} — כל השעות הן שעות הדרכה בלי כיתה, אין מה לדווח.`);
                 return;
             }
 
@@ -6023,6 +6067,7 @@
             // לרשימת הפנויים בשעות שהם אינם בבניין.
             enforcePersonalBlocks();
             enforceScheduleFixes();
+            enforceExtraPresenceDays();
             activeScheduleInfo = o ? { fileName: o.fileName || '', updatedAt: o.updatedAt || 0 } : null;
             if (typeof populateTeacherSelect === 'function') populateTeacherSelect();
             if (typeof populateTripTeacherSelect === 'function') populateTripTeacherSelect();
