@@ -290,29 +290,50 @@ async function checkAndSendDailySummary() {
 
 // ============ Weekly Cleanup (Friday noon Israel time) ============
 
+// Israel wall-clock parts (handles summer/winter time, unlike a fixed +2)
+function israelParts(d) {
+    const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false, weekday: 'short' });
+    const o = {}; for (const x of f.formatToParts(d)) o[x.type] = x.value;
+    const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(o.weekday);
+    return { date: `${o.year}-${o.month}-${o.day}`, day: wd, hour: parseInt(o.hour, 10) % 24 };
+}
+
+// Most recent Friday 12:00 (Israel) that is <= now, as { weekKey, ts }
+function lastFridayNoon(now) {
+    for (let back = 0; back < 8; back++) {
+        const cand = new Date(now.getTime() - back * 86400000);
+        const p = israelParts(cand);
+        if (p.day !== 5) continue;
+        if (back === 0 && p.hour < 12) continue;
+        // find the exact UTC ms of 12:00 Israel on that date
+        let t = Date.UTC(+p.date.slice(0,4), +p.date.slice(5,7)-1, +p.date.slice(8,10), 9);
+        while (israelParts(new Date(t)).hour !== 12) t += 3600000;
+        return { weekKey: p.date, ts: t };
+    }
+    return null;
+}
+
+// GitHub's "every 5 min" cron really fires every few hours, so a narrow
+// Friday window gets missed (6.11.26: runs at 11:28 and 18:53, nothing in 12-14).
+// Instead: catch up any time after Friday noon until the week's cleanup is done.
+// Reports created AFTER Friday noon belong to the new week and are kept.
 async function checkAndRunWeeklyCleanup() {
     const now = new Date();
-    const israelDate = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const israelDay = israelDate.getUTCDay(); // 5 = Friday
-    const israelHour = israelDate.getUTCHours();
-
-    // Only run on Friday between 12:00-14:00 Israel time
-    if (israelDay !== 5 || israelHour < 12 || israelHour > 14) return;
-
-    // Check if already cleaned this week
-    const weekKey = israelDate.toISOString().slice(0, 10);
+    const fri = lastFridayNoon(now);
+    if (!fri) return;
+    const weekKey = fri.weekKey;
     const cleanupFlag = await firebaseGet('/cleanupFlags/' + weekKey);
-    if (cleanupFlag) {
-        console.log('Weekly cleanup already done this week');
-        return;
-    }
+    if (cleanupFlag) return;
 
     console.log('Running weekly cleanup...');
 
     // Archive current data
     const absences = await firebaseGet('/absences');
     const tripClasses = await firebaseGet('/tripClasses');
-    if (absences) await firebasePut(`/archived/${weekKey}/absences`, absences);
+    // new-week reports (made after Friday noon) are not part of the week being archived
+    const toArchive = {};
+    for (const k in (absences || {})) if ((absences[k].createdAt || 0) < fri.ts) toArchive[k] = absences[k];
+    if (Object.keys(toArchive).length) await firebasePut(`/archived/${weekKey}/absences`, toArchive);
     if (tripClasses) await firebasePut(`/archived/${weekKey}/tripClasses`, tripClasses);
     console.log('Archived data');
 
@@ -328,7 +349,8 @@ async function checkAndRunWeeklyCleanup() {
     if (absences) {
         for (const key in absences) {
             const a = absences[key];
-            if (!a.forNextWeek) continue;
+            const newWeek = (a.createdAt || 0) >= fri.ts;
+            if (!a.forNextWeek && !newWeek) continue;
             const restored = { ...a };
             delete restored.forNextWeek;
             await firebasePut(`/absences/${key}`, restored);
