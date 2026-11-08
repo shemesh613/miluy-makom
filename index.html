@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="926c9c34865a">
+    <meta name="app-build" content="6b50aa46d0f2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -4479,8 +4479,16 @@
                 t.hours.includes(hour) && !isTeacherUnavailable(t.name, hour)
             ).map(t => ({
                 ...t,
-                isRequired: required.some(r => r.name === t.name)
+                // "חובה" רק בשעה שהכיתה שלו באמת בטיול — לא בכל שעה פנויה שלו
+                isRequired: required.some(r => r.name === t.name && r.hours.includes(hour))
             }));
+            // אותו מלמד יכול להופיע פעמיים (חובה + פנוי) — משאירים רשומה אחת, החובה גוברת
+            for (let i = filtered.length - 1; i >= 0; i--) {
+                const j = filtered.findIndex(x => x.name === filtered[i].name);
+                if (j !== i) { if (filtered[i].isRequired) filtered[j].isRequired = true; filtered.splice(i, 1); }
+            }
+            // החייבים (כיתתם בטיול בשעה הזו) ראשונים
+            filtered.sort((a, b) => (b.isRequired ? 1 : 0) - (a.isRequired ? 1 : 0));
 
             // Always add הרב צביקה as permanent substitute (if not already in list)
             if (!filtered.some(t => t.name === 'הרב צביקה') && !isTeacherUnavailable('הרב צביקה', hour)) {
