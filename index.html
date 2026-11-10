@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="5c26ca7dddb9">
+    <meta name="app-build" content="8fa1f5d135df">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -3641,6 +3641,10 @@
                     todayHours.forEach(hour => {
                         // Get which class this teacher teaches at this hour
                         const classAtHour = getTeacherClassAtHour(teacher, currentDay, hour);
+
+                        // שעה בלי כיתה (חסימה אישית / הדרכה / גנים) — אין מה לכסות.
+                        // הרב ינון 4–5 (PERSONAL_BLOCKS) נוצרו כ"חיסור" בטיול 11.11.
+                        if (!classAtHour) return;
 
                         // Skip if teacher teaches the trip class at this hour (incl. בוקר of the trip class)
                         if (isClassOnTrip(classAtHour, [classOnTrip])) return;
