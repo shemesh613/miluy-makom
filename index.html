@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="67a5dafc640c">
+    <meta name="app-build" content="9298b68dfb74">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -2414,12 +2414,20 @@
         // subject to the 22:30 rule for Sunday (which is "tomorrow")
         function isDayLocked(targetDay) {
             // Check if day was manually unlocked by admin
-            if (unlockedDaysData[targetDay]) {
+            // פתיחה ע"י מנהל תקפה 24 שעות בלבד — פתיחה ישנה לא תשאיר יום פתוח לתמיד
+            const unl = unlockedDaysData[targetDay];
+            if (typeof unl === 'number' && Date.now() - unl < 24 * 3600 * 1000) {
                 return false; // Manually unlocked
             }
             // היום ומחר תמיד פתוחים — אלה הדיווחים הרגילים, ואין סיבה לנעול אותם
             const t = israelNow();
-            if (targetDay === t.day || targetDay === (t.day + 1) % 7) return false;
+            // היום — תמיד פתוח (דיווח מאוחר על היום עצמו לגיטימי)
+            if (targetDay === t.day) return false;
+            // מחר — נסגר ב-22:30 שעון ישראל; אחרי זה רק מנהל פותח (שמשון, 11.11.26)
+            if (targetDay === (t.day + 1) % 7) {
+                if (targetDay === 6) return 'shabbat';
+                return t.hour > LOCKOUT_HOUR || (t.hour === LOCKOUT_HOUR && t.minute >= LOCKOUT_MINUTE);
+            }
 
             const now = new Date();
             const todayDay = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
@@ -2483,10 +2491,10 @@
                 return;
             }
 
-            unlockedDaysData[day] = true;
+            unlockedDaysData[day] = Date.now();
 
             if (isOnline && database) {
-                database.ref('unlockedDays/' + day).set(true);
+                database.ref('unlockedDays/' + day).set(unlockedDaysData[day]);
             } else {
                 localStorage.setItem('unlockedDays', JSON.stringify(unlockedDaysData));
             }

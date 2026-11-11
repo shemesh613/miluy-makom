@@ -343,6 +343,7 @@ async function checkAndRunWeeklyCleanup() {
     await firebaseDelete('/tripExemptions');
     await firebaseDelete('/reminderDismissed');
     await firebaseDelete('/summaryFlags');
+    await firebaseDelete('/unlockedDays');
     console.log('Deleted old data');
 
     // Restore reports made for NEXT week - they become current-week reports
