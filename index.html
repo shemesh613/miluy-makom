@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="2f46f0c0d3e0">
+    <meta name="app-build" content="09a47ccdd1ba">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -1681,6 +1681,25 @@
             return null;
         }
 
+        /* הקבצה שמשחררת מלמד (11.11.26, שמשון): כששני השותפים להקבצה
+           יושבים באותה שעה על אותה כיתה, ונעדר מישהו *אחר* — אחד מהם
+           מאחד את שתי ההקבצות והשני מתפנה לכסות. למשל רביעי ש8: סימון
+           ואליהו שמשון שניהם בז׳, הרב אורי פ. נעדר מח׳ → אחד מאחד את ז׳
+           והשני עובר לח׳. מי שעובר = מי שנשאר לו יותר מכסה למ"מ. */
+        function hakbatzaFreeOption(absentTeacher, day, hour) {
+            for (const g of HAKBATZA_GROUPS) {
+                if (g.teachers.includes(absentTeacher)) continue;
+                const cls = ((dayHourClassesData[g.teachers[0]] || {})[day] || {})[hour];
+                if (!cls || !g.classes.includes(cls)) continue;
+                if (!g.teachers.every(t => ((dayHourClassesData[t] || {})[day] || {})[hour] === cls)) continue;
+                if (g.teachers.some(t => isTeacherUnavailable(t, hour))) continue;
+                const left = t => (typeof capacityNote === 'function' ? (capacityNote(t).left || 0) : 0);
+                const [mover, host] = [...g.teachers].sort((a, b) => left(b) - left(a));
+                return { cls, mover, host };
+            }
+            return null;
+        }
+
         // Class names for display
         const classNames = ['א','ב','ג','ד','ה','ו','ז','ח'];
 
@@ -3219,6 +3238,10 @@
 
             dayAbsences.forEach(([id, a]) => {
                 if (a.merged || a.substitute) return; // Already handled
+                // כיתה בטיול — אין מה לכסות, ולכן גם אין מה לאחד
+                { const c = a.classAtHour || getTeacherClassAtHour(a.teacher, currentDay, a.hour);
+                  const tn = (tripClassesData[currentDay] || []).map(t => typeof t === 'object' ? t.class : t);
+                  if (c && isClassOnTrip(c, tn)) return; }
 
                 const absenceHour = String(a.hour || (a.hours ? a.hours[0] : ''));
                 if (!absenceHour) return;
@@ -3251,6 +3274,17 @@
                         id, teacher: a.teacher, hour: absenceHour,
                         absentClass: hak.cls, parallelClass: hak.cls,
                         coveringTeacher: hak.teacher, isHakbatza: true
+                    });
+                }
+
+                // הקבצה באותה שעה בכיתה אחרת — אחד מאחד, השני מתפנה ובא
+                const hf = hakbatzaFreeOption(a.teacher, currentDay, absenceHour);
+                const hfClass = a.classAtHour || (dayHourClassesData[a.teacher]?.[currentDay] || {})[absenceHour];
+                if (hf && hfClass) {
+                    mergeable.push({
+                        id, teacher: a.teacher, hour: absenceHour,
+                        absentClass: hfClass, parallelClass: hf.cls,
+                        coveringTeacher: hf.mover, stayingTeacher: hf.host, isHakFree: true
                     });
                 }
 
@@ -3335,10 +3369,13 @@
             // באותה שעה הוא רעש שמסתיר אותה.
             const hakSlots = new Set(mergeable.filter(m => m.isHakbatza)
                                               .map(m => m.id + '|' + m.hour));
+            const hakFreeSlots = new Set(mergeable.filter(m => m.isHakFree)
+                                                  .map(m => m.id + '|' + m.parallelClass));
             const seenMerge = new Set();
             const cleanedMerges = mergeable.filter(m => {
                 if (!m.absentClass) return false;
                 if (m.isAdjacent && hakSlots.has(m.id + '|' + m.hour)) return false;
+                if (m.isAdjacent && hakFreeSlots.has(m.id + '|' + m.parallelClass)) return false;
                 const r = mergeRoles(m);
                 if (!r.host) return false;
                 const sig = [m.id, m.hour, r.host, r.mover || '', r.hostClasses.join('+')].join('|');
@@ -3356,6 +3393,7 @@
                 container.innerHTML = mergeable.map(m => {
                     const classLabel = m.absentClass || '';
                     const escapedTeacher = (m.coveringTeacher || '').replace(/'/g, "\\'");
+                    const escapedHost = (m.stayingTeacher || '').replace(/'/g, "\\'");
                     // ניסוח מפורש: מי יושב עם מי, איפה, ומי מלמד
                     const description = mergeDescription(m);
                     const msgs = mergeMessages(m);
@@ -3372,7 +3410,7 @@
                             <div class="merge-what">${description}</div>
                             <div class="merge-sends">${contactRow}</div>
                         </div>
-                        <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}', '${escapedTeacher}', ${m.isHakbatza ? 'true' : 'false'})">🔗 אחד</button>
+                        <button class="btn-merge" onclick="approveMerge('${m.id}', '${m.parallelClass}', '${escapedTeacher}', ${m.isHakbatza ? 'true' : 'false'}, ${m.isHakFree ? `'${escapedHost}'` : 'null'})">🔗 אחד</button>
                     </div>`;
                 }).join('');
             }
@@ -3392,6 +3430,11 @@
                 return { host: m.coveringTeacher, hostClasses: [cls], where: cls,
                          mover: null, hak: true,
                          note: `${cls} מתפצלת להקבצות — השותף להקבצה הוא שמאחד` };
+            }
+            if (m.isHakFree) {
+                return { host: m.stayingTeacher, hostClasses: [m.parallelClass], where: m.parallelClass,
+                         mover: m.coveringTeacher, moverTo: cls, hak: true,
+                         note: `ב${m.parallelClass} יש עכשיו שתי הקבצות במקביל — אחת מתאחדת, והשני מתפנה` };
             }
             if (!m.isAdjacent) {
                 const subs = parallelClasses[m.parallelClass] || [];
@@ -3450,9 +3493,25 @@
         }
 
         // Approve a merge
-        function approveMerge(id, parallelClass, coveringTeacher, isHakbatza) {
+        function approveMerge(id, parallelClass, coveringTeacher, isHakbatza, hakFreeHost) {
             const absence = absencesData[id];
             if (!absence) return;
+
+            // הקבצה שמשחררת מלמד: המארח מאחד את שתי ההקבצות, המשוחרר עובר
+            if (hakFreeHost) {
+                const h = String(absence.hour || '');
+                const cls = absence.classAtHour || getTeacherClassAtHour(absence.teacher, currentDay, h) || '';
+                if (!confirm(`לאשר?
+
+שתי ההקבצות של ${parallelClass} יושבות יחד בשעה ${h}
+מאחד: ${hakFreeHost}
+עובר: ${coveringTeacher} → כיתה ${cls}`)) return;
+                const upd = { merged: true, mergedClass: parallelClass, directMerge: false,
+                              hakbatza: true, substitute: coveringTeacher, stayingTeacher: hakFreeHost };
+                if (isOnline && database) database.ref('absences/' + id).update(upd);
+                else { Object.assign(absencesData[id], upd); localStorage.setItem('absences', JSON.stringify(absencesData)); updateAllViews(); }
+                return;
+            }
 
             const absenceHour = String(absence.hour || (absence.hours ? absence.hours[0] : ''));
 
