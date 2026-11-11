@@ -363,7 +363,7 @@ async function checkAndRunWeeklyCleanup() {
     if (perms) {
         for (const key in perms) {
             const p = perms[key];
-            const absKey = 'perm_' + p.teacher.replace(/\s/g, '_') + '_' + p.day + '_' + p.hour;
+            const absKey = 'perm_' + p.teacher.split('').map(c => '.#$[]/'.includes(c) ? '_' : c).join('').replace(/\s/g, '_') + '_' + p.day + '_' + p.hour;
             await firebasePut(`/absences/${absKey}`, {
                 teacher: p.teacher, day: p.day, hour: p.hour,
                 reason: p.reason || 'היעדרות קבועה',

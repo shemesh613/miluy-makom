@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="8fa1f5d135df">
+    <meta name="app-build" content="2f46f0c0d3e0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -3171,7 +3171,7 @@
             if (!hoursInput) { alert('נא להזין שעות'); return; }
 
             const hours = hoursInput.split(',').map(h => h.trim());
-            const key = `${currentDay}_${teacher}`;
+            const key = fbKey(`${currentDay}_${teacher}`);
 
             const data = { teacher, day: currentDay, hours, manual: true };
 
@@ -3656,7 +3656,7 @@
                             a.day === currentDay && a.teacher === teacher && (a.hour === hour || (a.hours && a.hours.includes(hour)))
                         );
                         if (!exists) {
-                            const key = `${currentDay}_trip_${teacher}_${hour}`;
+                            const key = fbKey(`${currentDay}_trip_${teacher}_${hour}`);
                             const absenceData = {
                                 teacher, day: currentDay, hour,
                                 classAtHour: classAtHour || '',
@@ -3771,9 +3771,9 @@
         function exemptTripDuty(teacher) {
             if (!confirm(`לבטל את חובת מילוי המקום של ${teacher} להיום?`)) return;
             if (!tripExemptionsData[currentDay]) tripExemptionsData[currentDay] = {};
-            tripExemptionsData[currentDay][teacher] = true;
+            tripExemptionsData[currentDay][fbKey(teacher)] = true;
             if (isOnline && database) {
-                database.ref(`tripExemptions/${currentDay}/${teacher}`).set(true);
+                database.ref(`tripExemptions/${currentDay}/${fbKey(teacher)}`).set(true);
             } else {
                 localStorage.setItem('tripExemptions', JSON.stringify(tripExemptionsData));
                 updateAllViews();
@@ -3781,17 +3781,21 @@
         }
 
         function restoreTripDuty(teacher) {
-            if (tripExemptionsData[currentDay]) delete tripExemptionsData[currentDay][teacher];
+            if (tripExemptionsData[currentDay]) delete tripExemptionsData[currentDay][fbKey(teacher)];
             if (isOnline && database) {
-                database.ref(`tripExemptions/${currentDay}/${teacher}`).remove();
+                database.ref(`tripExemptions/${currentDay}/${fbKey(teacher)}`).remove();
             } else {
                 localStorage.setItem('tripExemptions', JSON.stringify(tripExemptionsData));
                 updateAllViews();
             }
         }
 
+        /* מפתח Firebase לא יכול להכיל . # $ [ ] /  —  "הרב אורי פ." גרם לשגיאה
+           שעצרה את יצירת החיסורים שלו בטיול (11.11.26). כל מפתח שבנוי משם — דרך fbKey. */
+        function fbKey(s) { return String(s).split('').map(c => '.#$[]/'.includes(c) ? '_' : c).join(''); }
+
         function isTripExempted(teacher) {
-            return !!(tripExemptionsData[currentDay] && tripExemptionsData[currentDay][teacher]);
+            return !!(tripExemptionsData[currentDay] && tripExemptionsData[currentDay][fbKey(teacher)]);
         }
 
         // Is this teacher unavailable at a given hour today?
@@ -6385,7 +6389,7 @@
                 var promises = [];
                 for (var key in perms) {
                     var p = perms[key];
-                    var absKey = 'perm_' + p.teacher.replace(/\s/g, '_') + '_' + p.day + '_' + p.hour;
+                    var absKey = 'perm_' + fbKey(p.teacher).replace(/\s/g, '_') + '_' + p.day + '_' + p.hour;
                     promises.push(database.ref('absences/' + absKey).set({
                         teacher: p.teacher,
                         day: p.day,
