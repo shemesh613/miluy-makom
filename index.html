@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="09a47ccdd1ba">
+    <meta name="app-build" content="67a5dafc640c">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -1372,7 +1372,7 @@
             <div class="card collapsible">
                 <h2 onclick="toggleSection(this)"><span class="icon">🟢</span> פנויים למילוי מקום <span class="toggle-arrow">▼</span></h2>
                 <p style="color: #666; margin-bottom: 15px;">מורים שעובדים היום ופנויים בשעות מסוימות</p>
-                <div id="available-teachers-list">
+                <div id="available-teachers-list" style="max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-left: 4px;">
                     <div class="empty-state">
                         <div class="icon">📭</div>
                         <p>אין מורים פנויים</p>
@@ -1731,7 +1731,8 @@
            המערכת — כלומר אין ממה לגזור זמינות. לכן הן מוצעות תמיד, בכל
            שעה, כמו ממלא מקום קבוע: בלי תקרה שבועית ובלי סימון "לוודא".
            זה מצב זמני — כשיתייצבו שעותיהן יש להוציא אותן מכאן. */
-        const ALWAYS_AVAILABLE = ['המורה נועה', 'המורה טובי'];
+        // הוסרו מרשימת הפנויים לבקשת שמשון (11.11.26). פרטי הקשר שלהן נשארים.
+        const ALWAYS_AVAILABLE = [];
 
         // מי שאי אפשר לחשב לו תקרה, כי שעותיו אינן במערכת
         const noCapData = t => isPartialYard(t) || ALWAYS_AVAILABLE.includes(t);
@@ -4387,7 +4388,9 @@
         // ההודעה למי שמכסה — חייבת לומר מראש אם מגיע לו החזר או לא,
         // כדי שלא יגלה בדיעבד שזה "נספר לו במכסה". זו תחושת עוקץ.
         function coverMessageWithDebt(coverer, absentee, day, hour, cls) {
-            const d = debtStatus(absentee, coverer);
+            /* אין החזרות ואין חישובי מכסה בהודעה (שמשון, 11.11.26): "הרב צבי יחזיר"
+               הופיע בהודעה להרב פורת. מנגנון ההחזר שייך לתורנות החצר בלבד. */
+            const d = null;
             const f = isFem(coverer);
             const base = `${coverer}, שלום. ביום ${dayNames[day]} בשעה ${hour}`
                 + `${cls ? ' בכיתה ' + cls : ''} — מילוי מקום בבקשה, במקום ${absentee}.`;
@@ -4687,7 +4690,7 @@
                     : '<option value="" disabled>אין מורים פנויים בשעה זו</option>';
 
                 const contactBtnId = `contact-${id}`;
-                const dbt = a.substitute ? debtStatus(a.teacher, a.substitute) : null;
+                const dbt = null; // ללא החזרות במילוי מקום
                 return `
                 <div class="absence-item" style="border-right-color: ${a.substitute ? '#28a745' : '#ffc107'}">
                     <div class="absence-info">
