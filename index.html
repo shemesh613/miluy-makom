@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="53b7765fb836">
+    <meta name="app-build" content="082ea11d0a3b">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -4491,8 +4491,13 @@
                 optContainer.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>אין מורים פנויים</p></div>';
             } else {
                 optContainer.innerHTML = optional.map(t => {
-                    const safe = safeWindows(t.name, currentDay).filter(h => (t.hours || []).includes(h));
-                    const risky = riskyWindows(t.name, currentDay).filter(h => (t.hours || []).includes(h));
+                    // שעות שכבר שובץ בהן היום — לא מציעים אותן שוב (17.11.26)
+                    const takenHrs = new Set(Object.values(absencesData)
+                        .filter(a => String(a.day) === String(currentDay) && (a.substitute === t.name || a.stayingTeacher === t.name))
+                        .map(a => String(a.hour)));
+                    const freeHrs = (t.hours || []).filter(h => !takenHrs.has(String(h)));
+                    const safe = safeWindows(t.name, currentDay).filter(h => freeHrs.includes(h));
+                    const risky = riskyWindows(t.name, currentDay).filter(h => freeHrs.includes(h));
                     const cap = capacityNote(t.name);
                     let hoursInfo = '';
                     if (safe.length || risky.length) {
@@ -4501,22 +4506,28 @@
                             + (risky.length ? `<span class="risky">⚠️ רצף — לברר: ${risky.join(', ')}</span>` : '')
                             + ` | מלמד: ${(t.teachingHours || []).join(', ')}`;
                     } else if (t.windowPriority) {
-                        hoursInfo = `שעות חלון: <strong>${t.hours.join(', ')}</strong> — נמצא בבניין בין השיעורים`
+                        hoursInfo = `שעות חלון: <strong>${freeHrs.join(', ')}</strong> — נמצא בבניין בין השיעורים`
                             + (t.otherHours && t.otherHours.length ? ` | פנוי גם: ${t.otherHours.join(', ')}` : '')
                             + ` | מלמד בשעות: ${(t.teachingHours || []).join(', ')}`;
                     } else if (t.reason === 'פנוי בשעות מסוימות') {
-                        hoursInfo = `שעות פנויות: <strong>${t.hours.join(', ')}</strong> | מלמד בשעות: ${t.teachingHours.join(', ')}`;
+                        hoursInfo = `שעות פנויות: <strong>${freeHrs.join(', ')}</strong> | מלמד בשעות: ${t.teachingHours.join(', ')}`;
                     } else {
-                        hoursInfo = `${t.reason} | שעות: ${t.hours.join(', ')}`;
+                        hoursInfo = `${t.reason} | שעות: ${freeHrs.join(', ')}`;
                     }
                     // מי שכיתתו בטיול — שעות החובה שלו מופיעות ראשונות גם כאן,
                     // אחרת רואים רק את החלון (6) ולא את החובה (4) — 17.11.26
-                    const reqEntry = required.find(r => r.name === t.name);
-                    if (reqEntry && reqEntry.hours.length) {
-                        hoursInfo = `<span style="color:#c62828;font-weight:700">🚌 חובה (כיתה בטיול): ${reqEntry.hours.join(', ')}</span> · ` + hoursInfo;
+                    const reqAll = required.find(r => r.name === t.name);
+                    const reqLeft = reqAll ? reqAll.hours.filter(h => !takenHrs.has(String(h))) : [];
+                    const reqDone = reqAll ? reqAll.hours.filter(h => takenHrs.has(String(h))) : [];
+                    const reqEntry = reqLeft.length ? { hours: reqLeft } : null;
+                    if (reqAll) {
+                        // חובה = רק שעות הטיול שעדיין לא שובצו. החלון אינו חובה — וכתוב כך במפורש
+                        hoursInfo = (reqLeft.length ? `<span style="color:#c62828;font-weight:700">🚌 חובה (כיתה בטיול): ${reqLeft.join(', ')}</span> · ` : '')
+                            + (reqDone.length ? `<span style="color:#28a745">✅ שובץ בחובה: ${reqDone.join(', ')}</span> · ` : '')
+                            + (freeHrs.length ? 'לא חובה — ' : '') + hoursInfo;
                     }
                     // Message includes ONLY hours actually needed (matching unassigned absences), with exact details
-                    const personal = buildPersonalMessage(t.name, reqEntry ? [...new Set([...reqEntry.hours, ...t.hours])] : t.hours);
+                    const personal = buildPersonalMessage(t.name, reqEntry ? [...new Set([...reqEntry.hours, ...freeHrs])] : freeHrs);
                     const contactMsg = personal
                         ? personal.msg
                         : `${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי בבקשה ואשלח פרטים. תודה רבה.`;
