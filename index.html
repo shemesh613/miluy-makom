@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת מילוי מקום - ת"ת (v3.1)</title>
     <!-- נחתם אוטומטית ע"י tools/stamp_build.py — אל תערכו ידנית -->
-    <meta name="app-build" content="9298b68dfb74">
+    <meta name="app-build" content="53b7765fb836">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🔄%3C/text%3E%3C/svg%3E">
@@ -4509,8 +4509,14 @@
                     } else {
                         hoursInfo = `${t.reason} | שעות: ${t.hours.join(', ')}`;
                     }
+                    // מי שכיתתו בטיול — שעות החובה שלו מופיעות ראשונות גם כאן,
+                    // אחרת רואים רק את החלון (6) ולא את החובה (4) — 17.11.26
+                    const reqEntry = required.find(r => r.name === t.name);
+                    if (reqEntry && reqEntry.hours.length) {
+                        hoursInfo = `<span style="color:#c62828;font-weight:700">🚌 חובה (כיתה בטיול): ${reqEntry.hours.join(', ')}</span> · ` + hoursInfo;
+                    }
                     // Message includes ONLY hours actually needed (matching unassigned absences), with exact details
-                    const personal = buildPersonalMessage(t.name, t.hours);
+                    const personal = buildPersonalMessage(t.name, reqEntry ? [...new Set([...reqEntry.hours, ...t.hours])] : t.hours);
                     const contactMsg = personal
                         ? personal.msg
                         : `${t.name}, שלום. מחפש מילוי מקום להיום (יום ${dayNames[currentDay]}). אם אתה פנוי — עדכן אותי בבקשה ואשלח פרטים. תודה רבה.`;
@@ -4521,7 +4527,7 @@
                             <div class="teacher-hours">${hoursInfo}</div>
                         </div>
                         <div class="contact-buttons">${getContactButtonsHTML(t.name, contactMsg)}</div>
-                        <span class="badge badge-optional">${t.windowPriority ? '⭐ עדיפות'
+                        <span class="badge badge-optional">${reqEntry ? '🚌 חובה' : t.windowPriority ? '⭐ עדיפות'
                             : t.alwaysAvailable ? 'זמינה'
                             : (t.reason === 'ממלא מקום קבוע' ? 'קבוע' : 'פנוי')}</span>
                         <span class="cap-badge ${cap.cls}" title="תקרת מילויי מקום לשבוע, לפי ש&quot;ש">${cap.text}</span>
